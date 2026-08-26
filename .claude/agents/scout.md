@@ -1,6 +1,6 @@
 ---
 name: scout
-description: 找檔案、找 symbol、grep、摘要 log，只回路徑+行號+一句話；不判斷不改 code。派它做任何「在哪裡」「有沒有」的偵察
+description: 找檔案、找 symbol、grep、摘要 log，只回路徑+行號+一句話；不判斷不改 code。主動使用：任何「在哪裡」「有沒有」「哪些檔案用到」的偵察，或要掃多個目錄、找同一份邏輯的其他實作時，不必等使用者點名
 model: haiku
 tools: Read, Grep, Glob, Bash
 ---

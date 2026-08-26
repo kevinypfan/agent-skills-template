@@ -26,11 +26,12 @@ scripts/
 1. 複製 `.agents/`、`.claude/skills/`、`.claude/agents/`、`.codex/agents/`、`scripts/` 到 repo 根（或 GitHub「Use this template」）。
 2. 填 `.agents/conventions.md`（至少 `base_branch`；有 label / 測試指令就填）。
 3. 調 model：`.claude/agents/*.md` 的 `model`、`.codex/agents/*.toml` 的 `model` / `model_reasoning_effort` 換成你帳號可用的；語言宣告依 conventions 的 `language`。
-4. 裝 pre-commit 守門（二選一）：
+4. 想讓角色被自動派（而非每次點名），把 `.agents/roles/README.md`「讓它自動被派」那段的政策片段貼進 repo 根的 `CLAUDE.md` / `AGENTS.md`。
+5. 裝 pre-commit 守門（二選一）：
    - husky：`.husky/pre-commit` 加一行 `sh scripts/pre-commit-skill-guard.sh`
    - 無 husky：`mkdir .githooks && printf '#!/bin/sh\nsh scripts/pre-commit-skill-guard.sh\n' > .githooks/pre-commit && chmod +x .githooks/pre-commit && git config core.hooksPath .githooks`
-5. `bash scripts/check-skill-stubs.sh` 應印 ✓。
-6. 確認 CLI：GitLab 專案 `glab auth status`、GitHub 專案 `gh auth status`。`ask-agents` 另需 `codex` / `claude` / `agy`。
+6. `bash scripts/check-skill-stubs.sh` 應印 ✓。
+7. 確認 CLI：GitLab 專案 `glab auth status`、GitHub 專案 `gh auth status`。`ask-agents` 另需 `codex` / `claude` / `agy`。
 
 ## 呼叫
 
@@ -42,6 +43,7 @@ scripts/
 
 skill 流程：`create-issue` → `create-worktree` → （新 session）`fix-issue` → `commit-push-pr`。
 角色分工：**scout 找、runner 跑、worker 做、reviewer 挑、architect 判**（詳見 `.agents/roles/README.md`）。
+角色的 `description` 帶觸發語，主對話比對到就自己派；要更可靠再加 `CLAUDE.md` 政策段與 skill 本文的確定性派工。
 
 ## 新增自己的 skill / 角色
 

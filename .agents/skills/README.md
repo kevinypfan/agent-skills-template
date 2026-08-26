@@ -16,6 +16,7 @@
 | `ask-agents` | 打包問題給 codex / agy 拿第二意見 | 獨立 |
 
 專案差異全在 `.agents/conventions.md`；tracker（GitLab / GitHub）差異全在 `_tracker/`。
+委派角色（scout / runner / reviewer / worker / architect）在 `.agents/roles/`，機制相同、stub 手寫；skill 本文提到派工只寫「派給 `<role>` agent」。
 
 ## 寫作規則（標 ✅ 者由 `scripts/check-skill-stubs.sh` 在 pre-commit 強制；其餘人工審）
 

@@ -28,7 +28,7 @@ stub 裡的 model 名是範例，依預算調整。Claude 端寫別名（`haiku`
 主對話會拿使用者的請求比對每個 stub 的 `description`，命中就自己派——**這是預設行為，不必點名**。但描述比對只是機率，兩件事要做：
 
 1. **description 帶觸發語**：本 template 的五個 stub 都寫成「…。主動使用：<什麼情境>，不必等使用者點名」。你新增角色時照這個形狀寫，只描述「我是誰」的 description 命中率很低。
-2. **把政策放進永遠在 context 的檔案**：`description` 只在工具選擇時參與比對，而 repo 根的 `CLAUDE.md` / `AGENTS.md` 每回合都在。把下面這段貼進去（依專案調整指令與契約名稱）：
+2. **把政策放進永遠在 context 的檔案**（全域安裝已由 `global/AGENT-ROLES.md` 處理；以下是單一 repo 版）：`description` 只在工具選擇時參與比對，而 repo 根的 `CLAUDE.md` / `AGENTS.md` 每回合都在。把下面這段貼進去（依專案調整指令與契約名稱）：
 
 ```markdown
 ## 委派角色（sub agents，本體在 `.agents/roles/`）

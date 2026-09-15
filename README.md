@@ -20,7 +20,11 @@ scripts/
 ├── generate-skill-stubs.sh ← skill 真身 → stub
 ├── check-skill-stubs.sh    ← 守門（skill stub + agent 三集合一致性 + 讓位段）
 ├── pre-commit-skill-guard.sh
-└── install-global.sh       ← 全域安裝（symlink 到 ~/.agents、~/.claude、~/.codex）
+├── install-global.sh       ← 全域安裝（~/.agents、~/.claude、~/.codex）
+└── post-change-sync.sh     ← git hook 呼叫：已全域安裝時自動同步
+global/
+└── AGENT-ROLES.md          ← 全域派工政策（Claude 用 @import、Codex 寫進 ~/.codex/AGENTS.md 區塊）
+.githooks/                  ← pre-commit 守門 + post-commit/merge/checkout/rewrite 自動同步
 ```
 
 ## 套用到專案
@@ -43,7 +47,11 @@ bash scripts/install-global.sh --apply    # 執行；--no-codex 略過 ~/.codex/
 bash scripts/install-global.sh --uninstall  # 只移除本腳本裝的項目
 ```
 
-本 repo 是所有專案共用的來源，改壞會立刻影響全部專案——clone 後先 `git config core.hooksPath .githooks` 啟用 pre-commit 守門（`.githooks/pre-commit` 已在 repo 內）。
+本 repo 是所有專案共用的來源，改壞會立刻影響全部專案——clone 後先 `git config core.hooksPath .githooks`：啟用 pre-commit 守門，以及 commit / merge / checkout / rebase 後自動重跑 `--apply --quiet`（只在本機已全域安裝時動作，改完 Codex toml 或派工政策不必記得手動同步）。
+
+**派工政策**（`global/AGENT-ROLES.md`，讓主對話主動派 scout / runner…）一併安裝：Claude 端 symlink 到 `~/.claude/AGENT-ROLES.md` 並在 `~/.claude/CLAUDE.md` 加一行 `@AGENT-ROLES.md`；Codex 的 `AGENTS.md` 沒有 import，改寫進 `~/.codex/AGENTS.md` 的標記區塊（檔內其他內容不動，`--uninstall` 只拿掉該區塊）。新增角色時要在政策裡點名，守門會檢查。
+
+**換機器**：clone 本 repo → `git config core.hooksPath .githooks` → `bash scripts/install-global.sh --apply`，就這樣。
 
 裝完後，沒有自己版本的專案直接可用；**有同名客製版的專案仍跑專案版**。同名時兩個工具的優先序不同，所以用了三層處理：
 
@@ -56,9 +64,8 @@ bash scripts/install-global.sh --uninstall  # 只移除本腳本裝的項目
 
 - repo 沒有 `.agents/conventions.md` 時，skill / 角色讀到的是 `~/.agents/conventions.md`，照其「repo 沒有本檔時」段從 repo 推斷（`git log` 語言、`Makefile` / `package.json` 指令…），推斷值會標註來源。
 - 讓位時用的是專案版的**流程**，但觸發比對（description）在 Claude 端用的是全域版的。
-- symlink 指向本 repo 的 working tree：本 repo 切到哪個分支，全域就生效哪個版本。**例外是 Codex agent（複製）**：改了 `.codex/agents/*.toml` 要重跑 `--apply`，dry-run 會標「過期」。
+- symlink 指向本 repo 的 working tree：本 repo 切到哪個分支，全域就生效哪個版本。**例外是複製 / 區塊項目**（Codex agent、`~/.codex/AGENTS.md`）：靠上面的 git hook 自動同步；沒啟用 hook 就手動重跑 `--apply`，dry-run 會標「過期」。
 - skill 讓位段判斷「全域版」的依據是**檔案不在當前 repo 內**，而不是路徑字面是 `~/.agents`——Codex 會把 symlink 解析成本 repo 的實際路徑顯示。
-- 想讓角色在所有專案都被主動派工，可把 `.agents/roles/README.md`「讓它自動被派」的政策段放進 `~/.claude/CLAUDE.md`（會影響所有專案，自行斟酌）。
 
 ## 呼叫
 

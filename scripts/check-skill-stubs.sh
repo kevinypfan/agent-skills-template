@@ -9,7 +9,7 @@
 #     - 開頭必有「先決定照哪一份跑」讓位段（全域安裝時讓位給專案客製版；見 .agents/skills/README.md）
 #  3. agent（若有 .agents/roles/）：roles / .claude/agents / .codex/agents 三集合一致；description 非空且兩邊逐字相同；
 #     stub 本文逐字 canonical；Claude tools 含 Edit/Write ⟺ Codex workspace-write（例外見 WRITE_SANDBOX_EXCEPTIONS）；
-#     純讀角色本體含唯讀 Bash 守則句
+#     純讀角色本體含唯讀 Bash 守則句；global/AGENT-ROLES.md（全域派工政策）要點名每個角色
 # 手動：bash scripts/check-skill-stubs.sh
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -94,6 +94,14 @@ if [ -d .agents/roles ]; then
       grep -q 'Bash 只用於唯讀指令；不重導向寫檔、不 `sed -i`、不 `git add`' "${body_f}" \
         || { echo "✗ role $r: ${body_f} 缺共同守則句「Bash 只用於唯讀指令；不重導向寫檔、不 \`sed -i\`、不 \`git add\`」（見 .agents/roles/README.md）"; fail=1; }
     fi
+  done
+fi
+
+# 全域派工政策要涵蓋每個角色（新增角色忘了寫進政策 → 主對話不會主動派它）
+if [ -f global/AGENT-ROLES.md ] && [ -d .agents/roles ]; then
+  for body_f in .agents/roles/*.md; do
+    r=${body_f##*/}; r=${r%.md}; [ "$r" = README ] && continue
+    grep -qF "\`$r\`" global/AGENT-ROLES.md || { echo "✗ role $r: global/AGENT-ROLES.md 沒有點名 \`$r\`（全域派工政策要涵蓋每個角色）"; fail=1; }
   done
 fi
 

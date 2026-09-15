@@ -14,7 +14,7 @@ compatibility: Requires git and glab (GitLab) or gh (GitHub)
 
 本 skill 可能同時裝在 repo 與全域（`~/.agents/skills/`），開工前先做這兩件事：
 
-1. 你讀的若是 `~/.agents/skills/create-worktree/SKILL.md`（全域版），先看 repo 根（`git rev-parse --show-toplevel`）：有 `.agents/skills/create-worktree/SKILL.md`，或有 `.claude/skills/create-worktree/SKILL.md` 且它不是只轉交到 `.agents/skills/create-worktree/SKILL.md` 的薄 stub → **改讀 repo 那份照做，本檔以下全部不適用**。專案版通常客製過（label、tracker、流程），全域版只在專案沒有時補位。
+1. 你正在讀的這份若**不在當前 repo 根（`git rev-parse --show-toplevel`）之內**，就是全域版——例如 `~/.agents/skills/create-worktree/SKILL.md`，或工具把 symlink 解析成實際路徑後顯示的其他目錄（全域安裝用 symlink，常見於 Codex）。全域版先看 repo 根：有 `.agents/skills/create-worktree/SKILL.md`，或有 `.claude/skills/create-worktree/SKILL.md` 且它不是只轉交到 `.agents/skills/create-worktree/SKILL.md` 的薄 stub → **改讀 repo 那份照做，本檔以下全部不適用**。專案版通常客製過（label、tracker、流程），全域版只在專案沒有時補位。
 2. 下文所有 `.agents/…` 路徑：repo 根有該檔就用 repo 的，沒有就用 `~/.agents/…` 同名檔（`~` 展開成家目錄絕對路徑再讀）。
 
 ## User Input

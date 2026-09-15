@@ -47,7 +47,7 @@ fi
 for real in .agents/skills/*/SKILL.md; do
   s=${real#.agents/skills/}; s=${s%/SKILL.md}
   grep -qx '## 先決定照哪一份跑' "$real" \
-    && grep -qF "1. 你讀的若是 \`~/.agents/skills/$s/SKILL.md\`（全域版），先看 repo 根" "$real" \
+    && grep -qF "1. 你正在讀的這份若**不在當前 repo 根（\`git rev-parse --show-toplevel\`）之內**，就是全域版——例如 \`~/.agents/skills/$s/SKILL.md\`" "$real" \
     && grep -qF "2. 下文所有 \`.agents/…\` 路徑：repo 根有該檔就用 repo 的，沒有就用 \`~/.agents/…\` 同名檔" "$real" \
     || { echo "✗ $s: 真身缺「## 先決定照哪一份跑」讓位段（或 skill 名 / 路徑規則句不符；範本見 .agents/skills/README.md）"; fail=1; }
 done

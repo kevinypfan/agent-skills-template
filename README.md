@@ -38,9 +38,9 @@ scripts/
 ## 全域安裝（所有專案共用）
 
 ```bash
-bash scripts/install-global.sh            # dry-run：列出會建立哪些 symlink、哪些目標已存在（衝突不覆寫）
+bash scripts/install-global.sh            # dry-run：列出會建立 / 更新哪些項目、哪些目標已存在（衝突不覆寫）
 bash scripts/install-global.sh --apply    # 執行；--no-codex 略過 ~/.codex/agents
-bash scripts/install-global.sh --uninstall  # 只移除指回本 repo 的 symlink
+bash scripts/install-global.sh --uninstall  # 只移除本腳本裝的項目
 ```
 
 本 repo 是所有專案共用的來源，改壞會立刻影響全部專案——clone 後先 `git config core.hooksPath .githooks` 啟用 pre-commit 守門（`.githooks/pre-commit` 已在 repo 內）。
@@ -52,11 +52,12 @@ bash scripts/install-global.sh --uninstall  # 只移除指回本 repo 的 symlin
 | Claude agent | 專案 `.claude/agents/` > 全域 | 天然專案優先；全域 stub 也會先找 repo 的 `.agents/roles/<r>.md` |
 | Claude skill | **全域 `~/.claude/skills/` > 專案** | 全域版照樣被載入，但真身開頭「先決定照哪一份跑」讓位段會改讀 repo 的 `.agents/skills/<s>/SKILL.md` 或客製 `.claude/skills/<s>/SKILL.md` |
 | Codex skill | 兩份並列 | 同上讓位段 |
-| Codex agent | 官方未說明 | stub 先找 repo 的角色本體 |
+| Codex agent | 官方未說明；**不載入 symlink 的 toml** | `~/.codex/agents/` 改用複製（首行有標記）；stub 先找 repo 的角色本體 |
 
 - repo 沒有 `.agents/conventions.md` 時，skill / 角色讀到的是 `~/.agents/conventions.md`，照其「repo 沒有本檔時」段從 repo 推斷（`git log` 語言、`Makefile` / `package.json` 指令…），推斷值會標註來源。
 - 讓位時用的是專案版的**流程**，但觸發比對（description）在 Claude 端用的是全域版的。
-- symlink 指向本 repo 的 working tree：本 repo 切到哪個分支，全域就生效哪個版本。
+- symlink 指向本 repo 的 working tree：本 repo 切到哪個分支，全域就生效哪個版本。**例外是 Codex agent（複製）**：改了 `.codex/agents/*.toml` 要重跑 `--apply`，dry-run 會標「過期」。
+- skill 讓位段判斷「全域版」的依據是**檔案不在當前 repo 內**，而不是路徑字面是 `~/.agents`——Codex 會把 symlink 解析成本 repo 的實際路徑顯示。
 - 想讓角色在所有專案都被主動派工，可把 `.agents/roles/README.md`「讓它自動被派」的政策段放進 `~/.claude/CLAUDE.md`（會影響所有專案，自行斟酌）。
 
 ## 呼叫

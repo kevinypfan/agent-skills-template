@@ -43,6 +43,8 @@ bash scripts/install-global.sh --apply    # 執行；--no-codex 略過 ~/.codex/
 bash scripts/install-global.sh --uninstall  # 只移除指回本 repo 的 symlink
 ```
 
+本 repo 是所有專案共用的來源，改壞會立刻影響全部專案——clone 後先 `git config core.hooksPath .githooks` 啟用 pre-commit 守門（`.githooks/pre-commit` 已在 repo 內）。
+
 裝完後，沒有自己版本的專案直接可用；**有同名客製版的專案仍跑專案版**。同名時兩個工具的優先序不同，所以用了三層處理：
 
 | 同名情境 | 工具行為 | 本 template 的處理 |

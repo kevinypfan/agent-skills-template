@@ -1,6 +1,7 @@
 # agent-skills-template
 
-Claude Code 與 Codex **共用**的 repo-local 骨架：一組 issue-flow skill（GitLab / GitHub 通吃）＋五個委派角色（sub agent）。
+Claude Code 與 Codex **共用**的骨架：一組 issue-flow skill（GitLab / GitHub 通吃）＋五個委派角色（sub agent）。
+可以**複製進單一 repo**，也可以**全域安裝**到家目錄給所有專案共用（兩種可並存，專案版優先）。
 兩邊的行為只寫一份，各自的工具設定檔是薄 stub，由腳本產生 / 由守門逐字比對。
 
 ```
@@ -17,8 +18,9 @@ Claude Code 與 Codex **共用**的 repo-local 骨架：一組 issue-flow skill�
 .codex/agents/              ← Codex agent stub（model / effort / sandbox 在這）
 scripts/
 ├── generate-skill-stubs.sh ← skill 真身 → stub
-├── check-skill-stubs.sh    ← 守門（skill stub + agent 三集合一致性）
-└── pre-commit-skill-guard.sh
+├── check-skill-stubs.sh    ← 守門（skill stub + agent 三集合一致性 + 讓位段）
+├── pre-commit-skill-guard.sh
+└── install-global.sh       ← 全域安裝（symlink 到 ~/.agents、~/.claude、~/.codex）
 ```
 
 ## 套用到專案
@@ -32,6 +34,28 @@ scripts/
    - 無 husky：`mkdir .githooks && printf '#!/bin/sh\nsh scripts/pre-commit-skill-guard.sh\n' > .githooks/pre-commit && chmod +x .githooks/pre-commit && git config core.hooksPath .githooks`
 6. `bash scripts/check-skill-stubs.sh` 應印 ✓。
 7. 確認 CLI：GitLab 專案 `glab auth status`、GitHub 專案 `gh auth status`。`ask-agents` 另需 `codex` / `claude` / `agy`。
+
+## 全域安裝（所有專案共用）
+
+```bash
+bash scripts/install-global.sh            # dry-run：列出會建立哪些 symlink、哪些目標已存在（衝突不覆寫）
+bash scripts/install-global.sh --apply    # 執行；--no-codex 略過 ~/.codex/agents
+bash scripts/install-global.sh --uninstall  # 只移除指回本 repo 的 symlink
+```
+
+裝完後，沒有自己版本的專案直接可用；**有同名客製版的專案仍跑專案版**。同名時兩個工具的優先序不同，所以用了三層處理：
+
+| 同名情境 | 工具行為 | 本 template 的處理 |
+|---|---|---|
+| Claude agent | 專案 `.claude/agents/` > 全域 | 天然專案優先；全域 stub 也會先找 repo 的 `.agents/roles/<r>.md` |
+| Claude skill | **全域 `~/.claude/skills/` > 專案** | 全域版照樣被載入，但真身開頭「先決定照哪一份跑」讓位段會改讀 repo 的 `.agents/skills/<s>/SKILL.md` 或客製 `.claude/skills/<s>/SKILL.md` |
+| Codex skill | 兩份並列 | 同上讓位段 |
+| Codex agent | 官方未說明 | stub 先找 repo 的角色本體 |
+
+- repo 沒有 `.agents/conventions.md` 時，skill / 角色讀到的是 `~/.agents/conventions.md`，照其「repo 沒有本檔時」段從 repo 推斷（`git log` 語言、`Makefile` / `package.json` 指令…），推斷值會標註來源。
+- 讓位時用的是專案版的**流程**，但觸發比對（description）在 Claude 端用的是全域版的。
+- symlink 指向本 repo 的 working tree：本 repo 切到哪個分支，全域就生效哪個版本。
+- 想讓角色在所有專案都被主動派工，可把 `.agents/roles/README.md`「讓它自動被派」的政策段放進 `~/.claude/CLAUDE.md`（會影響所有專案，自行斟酌）。
 
 ## 呼叫
 
@@ -50,7 +74,7 @@ skill 流程：`create-issue` → `create-worktree` → （新 session）`fix-is
 - skill：`mkdir .agents/skills/<name>` 寫 `SKILL.md`（規則見 `.agents/skills/README.md`）→ `bash scripts/generate-skill-stubs.sh` → commit。
 - 角色：`.agents/roles/<r>.md` 寫本體，再手寫 `.claude/agents/<r>.md` 與 `.codex/agents/<r>.toml` 兩份 stub（本文是 canonical 一句，守門逐字比對）→ commit。
 
-守門會擋：stub 與產生器輸出不符、手改 stub 本文、兩邊 description 不一致、讀寫權限兩邊不對稱、純讀角色本體漏掉唯讀守則句、skill 真身硬編 `glab` / `gh` 或用了 Claude 專屬 macro。
+守門會擋：stub 與產生器輸出不符、手改 stub 本文、兩邊 description 不一致、讀寫權限兩邊不對稱、純讀角色本體漏掉唯讀守則句、skill 真身硬編 `glab` / `gh` 或用了 Claude 專屬 macro、skill 真身缺讓位段。
 
 ## 已知未含
 

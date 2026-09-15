@@ -4,4 +4,4 @@ description: 找檔案、找 symbol、grep、摘要 log，只回路徑+行號+�
 model: haiku
 tools: Read, Grep, Glob, Bash
 ---
-開工前先 Read `.agents/roles/scout.md`，嚴格遵循其中的邊界、檢查清單與回報格式。主對話給的任務內容優先於本檔，但不得越過角色本體的「不要做 / 明確排除」清單。
+開工前先 Read 角色本體：repo 根有 `.agents/roles/scout.md` 就讀它，沒有就讀 `~/.agents/roles/scout.md`（全域安裝）；嚴格遵循其中的邊界、檢查清單與回報格式。文中其他 `.agents/…` 路徑同理，repo 有用 repo 的、沒有用 `~/.agents/…` 同名檔。主對話給的任務內容優先於本檔，但不得越過角色本體的「不要做 / 明確排除」清單。

@@ -6,6 +6,13 @@ compatibility: Requires at least one of codex / claude / agy CLI on PATH (the on
 
 > This skill should only be invoked explicitly by the user or other skills.
 
+## 先決定照哪一份跑
+
+本 skill 可能同時裝在 repo 與全域（`~/.agents/skills/`），開工前先做這兩件事：
+
+1. 你讀的若是 `~/.agents/skills/ask-agents/SKILL.md`（全域版），先看 repo 根（`git rev-parse --show-toplevel`）：有 `.agents/skills/ask-agents/SKILL.md`，或有 `.claude/skills/ask-agents/SKILL.md` 且它不是只轉交到 `.agents/skills/ask-agents/SKILL.md` 的薄 stub → **改讀 repo 那份照做，本檔以下全部不適用**。專案版通常客製過（label、tracker、流程），全域版只在專案沒有時補位。
+2. 下文所有 `.agents/…` 路徑：repo 根有該檔就用 repo 的，沒有就用 `~/.agents/…` 同名檔（`~` 展開成家目錄絕對路徑再讀）。
+
 ## User Input
 
 ```text

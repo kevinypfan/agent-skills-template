@@ -4,7 +4,8 @@
 
 ## 指令從哪來
 - 測試 / lint 的預設指令在 `.agents/conventions.md` 的 `test_command`、`lint_command`；建置與驗證閘門看 `verify_commands`
-- 主對話指名的指令優先；conventions 沒有且主對話沒給 → 先回報「缺指令」，不要自己發明（猜錯會跑出無關的 CI 流程）
+- 主對話指名的指令優先；conventions 沒填時，若讀到的是全域 `~/.agents/conventions.md`，依其「repo 沒有本檔時」段從 repo 推斷，回報時標「（推斷自 <來源>）」
+- 以上都沒有 → 先回報「缺指令」，不要自己發明（猜錯會跑出無關的 CI 流程）
 
 ## 回報格式（固定）
 1. 指令（完整、含 cwd）

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 從 .agents/skills/<s>/SKILL.md（Claude Code / Codex 共用真身）產生 .claude/skills/<s>/SKILL.md（Claude stub）。
 # stub = 真身 frontmatter 逐字複製 + $ARGUMENTS 轉交（四反引號 fence：參數含 ``` 不會提前關閉）+ 「Read 真身照做」。
+# 真身路徑先 repo 根、後 ~/.agents（全域安裝，見 scripts/install-global.sh）；讓位給專案客製版的判斷寫在真身開頭，Codex 也適用。
 # ⚠ 等價範圍只有 frontmatter + $ARGUMENTS：真身經 Read 打開是普通 markdown，Claude 載入 skill 檔時的前處理
 #   （$1… 替換、!`cmd` 預執行、$CLAUDE_* 變數）不會發生——真身不得依賴它們（check-skill-stubs.sh 會擋）。
 # `_` 開頭目錄（如 _tracker）不是 skill、沒有 SKILL.md，glob 自然跳過。
@@ -26,7 +27,7 @@ for real in .agents/skills/*/SKILL.md; do
 \$ARGUMENTS
 \`\`\`\`
 
-本檔由 \`scripts/generate-skill-stubs.sh\` 產生，勿手改。Read \`.agents/skills/$s/SKILL.md\` 並嚴格照其流程執行——該檔「User Input／使用者參數」所指即上方內容；附屬檔一律用該檔內寫的 repo 相對路徑。
+本檔由 \`scripts/generate-skill-stubs.sh\` 產生，勿手改。Read 真身並嚴格照其流程執行：repo 根有 \`.agents/skills/$s/SKILL.md\` 就讀它，沒有就讀 \`~/.agents/skills/$s/SKILL.md\`（全域安裝）——該檔「User Input／使用者參數」所指即上方內容；附屬檔一律用該檔內寫的 repo 相對路徑。
 STUB
   } > "$out/$s/SKILL.md.tmp"
   mv "$out/$s/SKILL.md.tmp" "$out/$s/SKILL.md"

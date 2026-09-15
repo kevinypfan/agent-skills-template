@@ -6,6 +6,7 @@
 #     - 附屬檔不用 ../ 或裸 assets|references|scripts|templates/（stub 轉跳後 cwd 是 repo 根）
 #     - 呼叫其他 skill 不寫 Claude slash 語法（起行的「/name …」或反引號包住的「`/name`」）、不並列 per-tool 語法
 #     - 不硬編 tracker CLI（glab / gh）——動作名寫「[tracker] …」，指令只放 .agents/skills/_tracker/
+#     - 開頭必有「先決定照哪一份跑」讓位段（全域安裝時讓位給專案客製版；見 .agents/skills/README.md）
 #  3. agent（若有 .agents/roles/）：roles / .claude/agents / .codex/agents 三集合一致；description 非空且兩邊逐字相同；
 #     stub 本文逐字 canonical；Claude tools 含 Edit/Write ⟺ Codex workspace-write（例外見 WRITE_SANDBOX_EXCEPTIONS）；
 #     純讀角色本體含唯讀 Bash 守則句
@@ -42,6 +43,14 @@ body_rule '^/('"$skills"')( |$)|`/('"$skills"')[` ]|Codex `\$[a-z-]+`|subagent_t
 if hits=$(grep -nE '(^|[^a-zA-Z`])(glab|gh) (issue|mr|pr|api|auth)\b' .agents/skills/*/SKILL.md | grep -v '^[^:]*:[0-9]*:compatibility:'); then
   echo "✗ 共用真身硬編 tracker 指令（改寫成「[tracker] 動作名」，指令放 .agents/skills/_tracker/<tracker>.md）："; echo "$hits" | sed 's/^/    /'; fail=1
 fi
+# 讓位段：全域版（~/.agents/skills/）在專案有同名 skill 時必須讓位——Claude 端全域 skill 會蓋掉專案版，Codex 端兩份並列
+for real in .agents/skills/*/SKILL.md; do
+  s=${real#.agents/skills/}; s=${s%/SKILL.md}
+  grep -qx '## 先決定照哪一份跑' "$real" \
+    && grep -qF "1. 你讀的若是 \`~/.agents/skills/$s/SKILL.md\`（全域版），先看 repo 根" "$real" \
+    && grep -qF "2. 下文所有 \`.agents/…\` 路徑：repo 根有該檔就用 repo 的，沒有就用 \`~/.agents/…\` 同名檔" "$real" \
+    || { echo "✗ $s: 真身缺「## 先決定照哪一份跑」讓位段（或 skill 名 / 路徑規則句不符；範本見 .agents/skills/README.md）"; fail=1; }
+done
 # _tracker 必備檔
 for f in README.md gitlab.md github.md; do
   [ -f ".agents/skills/_tracker/$f" ] || { echo "✗ 缺 .agents/skills/_tracker/$f"; fail=1; }
@@ -69,9 +78,10 @@ if [ -d .agents/roles ]; then
     [ -n "$d" ] || { echo "✗ agent $r: $md 缺 description（Claude 會跳過此 agent）"; fail=1; }
     [ "$d" = "$(desc_toml "$toml")" ] || { echo "✗ agent $r: description 在 $md 與 $toml 不一致"; fail=1; }
     body=$(awk '/^---/{c++; next} c>=2{print}' "$md" | sed '/^$/d')
-    want="開工前先 Read \`${body_f}\`，嚴格遵循其中的邊界、檢查清單與回報格式。主對話給的任務內容優先於本檔，但不得越過角色本體的「不要做 / 明確排除」清單。"
+    want="開工前先 Read 角色本體：repo 根有 \`${body_f}\` 就讀它，沒有就讀 \`~/${body_f}\`（全域安裝）；嚴格遵循其中的邊界、檢查清單與回報格式。文中其他 \`.agents/…\` 路徑同理，repo 有用 repo 的、沒有用 \`~/.agents/…\` 同名檔。主對話給的任務內容優先於本檔，但不得越過角色本體的「不要做 / 明確排除」清單。"
     [ "$body" = "$want" ] || { echo "✗ agent $r: $md 本文不是 canonical 一句（stub 只指回本體；要改行為請改 ${body_f}）"; fail=1; }
-    grep -qF "開工前先讀 ${body_f}，嚴格遵循其中的邊界、檢查清單與回報格式。" "$toml" && grep -qF "主對話給的任務內容優先於本檔，但不得越過角色本體的「不要做 / 明確排除」清單。" "$toml" \
+    grep -qF "開工前先讀角色本體：repo 根有 ${body_f} 就讀它，沒有就讀 ~/${body_f}（全域安裝）；嚴格遵循其中的邊界、檢查清單與回報格式。" "$toml" \
+      && grep -qF "文中其他 .agents/… 路徑同理，repo 有用 repo 的、沒有用 ~/.agents/… 同名檔。" "$toml" && grep -qF "主對話給的任務內容優先於本檔，但不得越過角色本體的「不要做 / 明確排除」清單。" "$toml" \
       || { echo "✗ agent $r: $toml developer_instructions 缺 canonical 句（可加補充行，不可改寫）"; fail=1; }
     cl_w=0; grep -qE '^tools:.*\b(Edit|Write)\b' "$md" && cl_w=1
     cx_w=0; grep -qE '^sandbox_mode *= *"workspace-write"' "$toml" && cx_w=1

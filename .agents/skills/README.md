@@ -15,11 +15,13 @@
 | `commit-push-pr` | self-review、驗證閘門、commit、push、建/更新 PR | （終點；review 類 skill 未含） |
 | `ask-agents` | 打包問題給 codex / agy 拿第二意見 | 獨立 |
 
-專案差異全在 `.agents/conventions.md`；tracker（GitLab / GitHub）差異全在 `_tracker/`。
+專案差異全在 `.agents/conventions.md`（repo 沒有時用全域版的推斷規則）；tracker（GitLab / GitHub）差異全在 `_tracker/`。
 委派角色（scout / runner / reviewer / worker / architect）在 `.agents/roles/`，機制相同、stub 手寫；skill 本文提到派工只寫「派給 `<role>` agent」。
 
 ## 寫作規則（標 ✅ 者由 `scripts/check-skill-stubs.sh` 在 pre-commit 強制；其餘人工審）
 
+- ✅ **每份真身開頭必有「先決定照哪一份跑」讓位段**（緊接在 `> This skill should only…` 之後；新 skill 從既有 skill 複製，把 skill 名換掉）。原因：全域安裝時 Claude 的全域 skill 會蓋掉專案同名 skill、Codex 則兩份並列，靠這段讓全域版改讀專案客製版。
+- 真身裡的 `.agents/…` 路徑照寫 repo 相對形式即可；讓位段第 2 點已規定「repo 沒有就退到 `~/.agents/…`」，不要自己寫 `~/.agents` 絕對路徑。
 - ✅ 改行為、改 frontmatter 都只改這裡，然後跑 `bash scripts/generate-skill-stubs.sh` 重生 stub（pre-commit 擋不一致）。
 - frontmatter 可含 Claude 擴充欄位（`allowed-tools`、`disable-model-invocation` 等）——Codex 忽略未知欄位，產生器整段複製給 stub。
 - ✅ **stub 的等價範圍只有 frontmatter + `$ARGUMENTS` 轉交**。真身經 `Read` 打開是普通 markdown，Claude 載入 skill 檔時才做的前處理一律不會發生：`$ARGUMENTS` / `$1`… 不替換、`` !`cmd` `` 不預執行、`$CLAUDE_PROJECT_DIR` 等變數不存在。真身**不得**含這些——使用者參數一律寫 `<使用者參數（由呼叫端帶入）>`；要先跑的指令寫成「先用 Bash 執行」的普通步驟，repo 根用 `git rev-parse --show-toplevel`。

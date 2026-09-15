@@ -6,6 +6,13 @@ compatibility: Requires git and glab (GitLab) or gh (GitHub)
 
 > This skill should only be invoked explicitly by the user or other skills.
 
+## 先決定照哪一份跑
+
+本 skill 可能同時裝在 repo 與全域（`~/.agents/skills/`），開工前先做這兩件事：
+
+1. 你讀的若是 `~/.agents/skills/fix-issue/SKILL.md`（全域版），先看 repo 根（`git rev-parse --show-toplevel`）：有 `.agents/skills/fix-issue/SKILL.md`，或有 `.claude/skills/fix-issue/SKILL.md` 且它不是只轉交到 `.agents/skills/fix-issue/SKILL.md` 的薄 stub → **改讀 repo 那份照做，本檔以下全部不適用**。專案版通常客製過（label、tracker、流程），全域版只在專案沒有時補位。
+2. 下文所有 `.agents/…` 路徑：repo 根有該檔就用 repo 的，沒有就用 `~/.agents/…` 同名檔（`~` 展開成家目錄絕對路徑再讀）。
+
 ## User Input
 
 ```text
@@ -18,7 +25,7 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 ## Step 0: 讀設定
 
-1. 讀 `.agents/conventions.md` 取 `base_branch`、`test_command`、`lint_command`、`language`。
+1. 讀 `.agents/conventions.md` 取 `base_branch`、`test_command`、`lint_command`、`commit_language`、`language`。
 2. 依 `.agents/skills/_tracker/README.md` 判斷 tracker，讀對應 `.agents/skills/_tracker/<tracker>.md`。
 
 ## Workflow
@@ -95,4 +102,4 @@ commit-push-pr 會處理：self-review → 驗證閘門 → staging → commit �
 - **不自動 assign issue** — 避免未經確認的副作用
 - **分析完畢必須等使用者確認**才能動手改 code
 - **不自己處理 commit/PR** — 一律透過 skill `commit-push-pr`
-- 對話語言依 `language`；**commit message 一律英文**（Conventional Commits）
+- 對話語言依 `language`；**commit message 語言依 `commit_language`**（格式 Conventional Commits）

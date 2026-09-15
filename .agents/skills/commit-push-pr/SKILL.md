@@ -6,6 +6,13 @@ compatibility: Requires git and glab (GitLab) or gh (GitHub)
 
 > This skill should only be invoked explicitly by the user or other skills.
 
+## 先決定照哪一份跑
+
+本 skill 可能同時裝在 repo 與全域（`~/.agents/skills/`），開工前先做這兩件事：
+
+1. 你讀的若是 `~/.agents/skills/commit-push-pr/SKILL.md`（全域版），先看 repo 根（`git rev-parse --show-toplevel`）：有 `.agents/skills/commit-push-pr/SKILL.md`，或有 `.claude/skills/commit-push-pr/SKILL.md` 且它不是只轉交到 `.agents/skills/commit-push-pr/SKILL.md` 的薄 stub → **改讀 repo 那份照做，本檔以下全部不適用**。專案版通常客製過（label、tracker、流程），全域版只在專案沒有時補位。
+2. 下文所有 `.agents/…` 路徑：repo 根有該檔就用 repo 的，沒有就用 `~/.agents/…` 同名檔（`~` 展開成家目錄絕對路徑再讀）。
+
 ## User Input
 
 ```text
@@ -20,7 +27,7 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 ## Step 0: 讀設定
 
-1. 讀 `.agents/conventions.md` 取 `base_branch`、`pr_labels`、`pr_assignee`、`commit_scopes`、`commit_trailer`、`verify_commands`、`language`。
+1. 讀 `.agents/conventions.md` 取 `base_branch`、`pr_labels`、`pr_assignee`、`commit_scopes`、`commit_trailer`、`commit_language`、`verify_commands`、`language`。
 2. 依 `.agents/skills/_tracker/README.md` 判斷 tracker，讀對應 `.agents/skills/_tracker/<tracker>.md`。下文 **[tracker] 動作** 一律查該檔。
 
 ## Workflow
@@ -126,7 +133,7 @@ PR 建好後**詢問使用者**是否要在 diff 上留 inline comment 解釋非
 ## Important Notes
 
 - **Always do self-review first**
-- PR 內文語言依 `language`；**commit message 一律英文**（Conventional Commits `type(scope): description`）
+- PR 內文語言依 `language`；**commit message 語言依 `commit_language`**，格式一律 Conventional Commits `type(scope): description`
 - **Target branch 預設 `base_branch`**，使用者可覆蓋
 - **Never skip the review step** — push 前要使用者確認
 - **Verification gate**：`verify_commands` 有命中就必須綠才 commit

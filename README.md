@@ -27,7 +27,7 @@ scripts/
 
 1. 複製 `.agents/`、`.claude/skills/`、`.claude/agents/`、`.codex/agents/`、`scripts/` 到 repo 根（或 GitHub「Use this template」）。
 2. 填 `.agents/conventions.md`（至少 `base_branch`；有 label / 測試指令就填）。
-3. 調 model：`.claude/agents/*.md` 的 `model`、`.codex/agents/*.toml` 的 `model` / `model_reasoning_effort` 換成你帳號可用的；語言宣告依 conventions 的 `language`。
+3. 調 model：`.claude/agents/*.md` 的 `model`、`.codex/agents/*.toml` 的 `model` / `model_reasoning_effort` 換成你帳號可用的；語言宣告依 conventions 的 `language`。Claude 用別名會自動跟上新版；**Codex 沒有別名，換代時要手動改 toml 與 `ask-agents`**（見 `.agents/roles/README.md`）。
 4. 想讓角色被自動派（而非每次點名），把 `.agents/roles/README.md`「讓它自動被派」那段的政策片段貼進 repo 根的 `CLAUDE.md` / `AGENTS.md`。
 5. 裝 pre-commit 守門（二選一）：
    - husky：`.husky/pre-commit` 加一行 `sh scripts/pre-commit-skill-guard.sh`

@@ -34,8 +34,8 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 | 你在哪個 host | 預設問 | 點名才加 | 不問 |
 |---|---|---|---|
-| Claude Code | codex（`gpt-5.6-sol`, high） | agy（`gemini-3.1-pro-high`） | claude |
-| Codex | claude（`claude-fable-5`, high） | agy | codex |
+| Claude Code | codex（`gpt-6-astra`, high） | agy（`gemini-3.1-pro-high`） | claude |
+| Codex | claude（`fable`, high） | agy | codex |
 
 使用者說「都問」「多方意見」= 另外兩家全上。所有外部 agent 都用**唯讀**模式——只能讀 repo、跑唯讀命令，不能改檔案。
 
@@ -61,7 +61,7 @@ high reasoning 可能跑好幾分鐘，一律背景執行；要問多家時**同
 
 ```bash
 codex exec --sandbox read-only --skip-git-repo-check \
-  -m gpt-5.6-sol -c model_reasoning_effort=high \
+  -m gpt-6-astra -c model_reasoning_effort=high \
   -o "$SCRATCHPAD/ask-agents/codex-answer.md" \
   - < "$SCRATCHPAD/ask-agents/prompt.md"
 ```
@@ -71,7 +71,7 @@ codex exec --sandbox read-only --skip-git-repo-check \
 **claude**（在 Codex 裡預設必問）：
 
 ```bash
-claude -p --model claude-fable-5 --effort high \
+claude -p --model fable --effort high \
   --tools "Read,Grep,Glob,Bash" \
   --allowedTools "Bash(git diff:*)" "Bash(git log:*)" "Bash(git show:*)" "Bash(rg:*)" "Bash(sed -n:*)" \
   --permission-mode dontAsk \
@@ -102,8 +102,8 @@ agy --model gemini-3.1-pro-high --sandbox=true --print-timeout 15m \
 
 ```markdown
 ## 各家意見
-### codex (gpt-5.6-sol, high)        ← 有問才有
-### claude (claude-fable-5, high)    ← 有問才有
+### codex (gpt-6-astra, high)        ← 有問才有
+### claude (fable, high)             ← 有問才有
 ### agy (gemini-3.1-pro-high)        ← 有問才有
 （各段：重點摘要，不是全文轉貼）
 
@@ -132,6 +132,7 @@ review 對象是一個 PR 且使用者要求「發布結果」時，走三段式
 1. **Codex 底下跑本 skill 需要網路**：`claude -p` / `agy` 是 Codex sandbox 裡的子進程，`read-only` 與預設 `workspace-write` 都**無網路**、會直接連不上 API。Codex 端要以 `--sandbox danger-full-access`（或 config 開 `network_access`）啟動本回合；反向（Claude Code 裡跑 codex）沒有這個問題
 2. **agy flag 順序**：flag 在前、prompt 在後（靜默失敗）
 3. **成本意識**：三家都是最貴檔位。一份打包完整的 prompt 問一次，勝過來回好幾輪；追問用 `codex exec resume --last` / `claude --resume`
-4. **model fallback**：`gpt-5.6-sol` 回 model not supported 時拿掉 `-m` 用預設 model；`claude-fable-5` 不可用時退 `claude-opus-5`；reasoning/effort high 保留
-5. **唯讀的意思**：外部 agent 不能跑會寫檔的驗證（測試會寫 target/、node_modules cache…）。需要測試結果時自己跑完貼進 prompt
-6. **別把外部意見直接當結論丟給使用者**：你擁有最完整的對話脈絡，彙整與把關是你的責任
+4. **model fallback**：`gpt-6-astra` 回 model not supported 時改 `-m gpt-5.6-sol`，再不行拿掉 `-m` 用預設 model；`fable` 不可用時退 `opus`；reasoning/effort high 保留。回報標題寫**實際用到的** model
+5. **model 名稱怎麼維護**：Claude 端一律寫別名（`fable` / `opus` / `sonnet` / `haiku`），CLI 自動解析成該系列最新版，不必改；Codex 沒有別名，換代時要手動更新本檔與 `.codex/agents/*.toml`（可用的 slug 見 `~/.codex/models_cache.json`）
+6. **唯讀的意思**：外部 agent 不能跑會寫檔的驗證（測試會寫 target/、node_modules cache…）。需要測試結果時自己跑完貼進 prompt
+7. **別把外部意見直接當結論丟給使用者**：你擁有最完整的對話脈絡，彙整與把關是你的責任

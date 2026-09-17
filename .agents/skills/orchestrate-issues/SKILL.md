@@ -19,10 +19,36 @@ compatibility: Requires git, glab (GitLab) or gh (GitHub); automatic lanes need 
 <使用者參數（由呼叫端帶入）>
 ```
 
-You **MUST** consider the user input before proceeding (if not empty). The user input may contain:
-- issue 編號清單（`12 15 18`）、「目前所有 open issue」、或「繼續上次的調度」
+You **MUST** consider the user input before proceeding. The user input may contain:
+- issue 編號清單（`12 15 18`）、「目前所有 open issue」、或「繼續上次的調度」；**空白**時走 Step 0.5 入口 B
 - 本次臨時覆寫的設定（例如「這次不要自動 merge」「最多開兩條線」）——只影響本次、不寫檔
 - 其他限制（先做哪些、哪些不要碰）
+
+呼叫範例（參數部分）：
+
+```text
+12 15 18
+```
+
+```text
+目前所有 open issue，label 是 bug 的先做
+```
+
+```text
+繼續上次的調度
+```
+
+```text
+21 22 23，這次不要自動 merge、最多開兩條線
+```
+
+```text
+30 31，不要動 bindings/java/，#31 等 #30 merge 後再開線
+```
+
+```text
+（空白）
+```
 
 ## 角色分工
 
@@ -46,6 +72,48 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 4. **tracker**：依 `.agents/skills/_tracker/README.md` 判斷，讀對應 `.agents/skills/_tracker/<tracker>.md`；確認 CLI 已登入。
 5. **multiplexer**：依 `.agents/skills/_multiplexer/README.md` 判斷，讀對應檔。結果是 `none` → 本次走該 README「`none` 時的退化」，下文 [multiplexer] 動作改由使用者手動。
 6. **[tracker] 檢查 token 權限**：預期會有改到 CI 設定檔（workflow / pipeline 定義）的 PR 時特別確認——權限不足時 merge 與更新 PR 分支會失敗或一直顯示 blocked（症狀見 tracker 檔「token 權限」）。不足就停下請使用者補權限。
+
+## Step 0.5: 決定入口
+
+依 user input 走其中一個入口：
+
+### 入口 A：指定 issue（清單或「目前所有 open issue」）
+
+「所有 open issue」先 [tracker] 列出 open issue 取得清單（可依 user input 的條件篩選），然後進 Step 1。
+
+### 入口 B：user input 為空
+
+**不要自行全部開線**，先讓使用者選：
+
+1. [tracker] 列出 open issue（編號、標題、label）。
+2. [tracker] 列出 open PR，並 `git branch -a --list '*<N>-*'` 查分支，標出每個 issue **是否已有對應的 open PR／分支**（已有的通常是進行中或該走入口 C）。
+3. 依 Step 1 的方式（預估檔案、依重疊分線、設計順序）附**建議分線與優先序**，並簡述理由。
+4. 讓使用者選要處理哪些：Claude Code 用 AskUserQuestion（`multiSelect`；選項多於 4 個時依建議分線合併成組，或分輪問）；Codex 列編號清單請使用者回覆編號。
+5. 使用者選定後，以選中的 issue 進 Step 1（已做過的預估可沿用）。
+
+### 入口 C：繼續上次的調度
+
+新 session 不知道之前的線，**只從外部狀態重建**，不要憑記憶或猜測：
+
+1. 收集：
+   - [multiplexer] 列出所有 agent／session：名稱、cwd、狀態（只取 cwd 在本 repo 主目錄或 `worktree_root` 底下的）
+   - `git worktree list --porcelain`：路徑與分支
+   - [tracker] 列出 open PR：head／base 分支、CI 狀態、可否合併（需要時逐個 [tracker] 看 PR 可否合併）
+   - 相關 issue：分支名 `<prefix><N>-<slug>` 或 PR 關聯取出編號，[tracker] 看 issue（JSON）含留言（決定紀錄）
+2. 對應：worktree 分支 → issue 編號 → PR（head 分支相同）→ agent／session（cwd = worktree 路徑）。PR base 是另一條線的分支 → 疊分支，同一條線。
+3. 判斷每條線停在哪一步（有 agent 的先 [multiplexer] 讀 agent 畫面確認）：
+
+| 狀態 | 判斷依據 |
+|---|---|
+| 實作中 | agent `working`，或 worktree 有未 commit 變更、尚無 PR |
+| 等方案確認 | agent 停下，畫面停在 `fix-issue` 的修改方案等 proceed |
+| 等 self-review | agent 停下，畫面停在 `commit-push-pr` 的審查清單 |
+| PR 等 review 或 CI | PR 已建立，未 review 或 CI 未結束／失敗 |
+| 可 merge | review 無 blocker、CI 全綠、可合併 |
+| 待收尾 | PR 已 merge，但 worktree／session／分支還在 |
+| 無法判斷 | 有 worktree 但沒有 agent、也沒有 PR，或畫面看不出來 → 標出來問使用者 |
+
+4. 列出還原的分線表（Step 1 的格式加一欄「目前狀態」與「session／agent name」），**請使用者確認或修正**；使用者確認後從各線所在步驟接手：實作中／等確認 → Step 4，PR 階段 → Step 5，待收尾 → Step 6。缺 agent 但需要繼續實作的線，用 [multiplexer] 在既有 worktree 開 session，再照 Step 3 第 2–4 點啟動 agent 並送指令（註明「接續既有分支與 PR」）。
 
 ## Step 1: 盤點與分線（lane）
 

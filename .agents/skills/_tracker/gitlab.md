@@ -11,7 +11,19 @@ glab issue view <N> --output json
 JSON 欄位：`iid`（編號）、`title`、`description`（內文）、`labels`（**字串陣列**）、`web_url`、`state`。
 使用者給的是 URL（`https://<host>/<group>/<repo>/-/issues/<N>`）時取最後一段當 `<N>`。
 
-## 建 issue
+## 列出 open issue / open PR
+
+```bash
+glab issue list --output json --per-page 100      # 預設只列 opened
+glab mr list --output json --per-page 100         # 預設只列 opened
+```
+
+- issue 欄位：`iid`、`title`、`labels`（字串陣列）、`web_url`。
+- MR 欄位：`iid`、`title`、`source_branch`（= head）、`target_branch`（= base）、`draft`、`web_url`；**列表不含可靠的 pipeline 與 `detailed_merge_status`**，要逐個 `glab mr view <N> --output json` 看 `head_pipeline.status`、`detailed_merge_status`、`has_conflicts`。
+- MR 對應 issue：內文 `Closes #N`，或從 `source_branch` 的 `<prefix><N>-<slug>` 取編號。
+- 超過 100 個時加 `--label` / `--search` 縮小，或問使用者範圍。
+
+
 
 ```bash
 glab issue create \

@@ -25,10 +25,12 @@ test "${HERDR_ENV:-}" = 1 && echo herdr || echo none
 | 確認在 multiplexer 內 | `test "${HERDR_ENV:-}" = 1` | |
 | 取主 session 位置 | `$HERDR_WORKSPACE_ID` | 建 worktree 時掛在哪個 workspace 下 |
 | 建 worktree + 獨立 session | `herdr worktree create --workspace <ws> --branch <b> --base origin/<base> --path <path> --label <label> --no-focus` | 回傳 session（workspace）id 與空 shell pane id |
+| 在既有 worktree 開 session | `herdr worktree open --workspace <ws> --path <path> --no-focus` | 分支已存在、或重建調度時補開；回傳欄位同上 |
 | 在 session 啟動 agent | `herdr agent start <name> --kind <agent_kind> --pane <pane> [-- <agent_start_args>]` | name 是之後所有動作的 target |
 | 送指令給 agent | `herdr agent prompt <name> "<text>"` | 送完要確認真的開始工作，見 `herdr.md` |
 | 讀 agent 畫面 | `herdr agent read <name> --source recent-unwrapped --lines N` | `blocked` 時改 `--source visible` |
 | 查狀態 | `herdr agent get <name>` / `herdr agent list` | 狀態：`working` / `idle` / `done` / `blocked` / `unknown` |
+| 列出所有 agent／session | `herdr agent list`、`herdr workspace list`、`herdr worktree list --workspace <ws>` | 重建調度狀態用：agent 名稱、cwd、狀態；session 與其 worktree 分支 |
 | 等任一條線停下 | 輪詢 `herdr agent list` 的 loop（見 `herdr.md`） | 背景執行，有線離開 `working` 就回報 |
 | 送按鍵（選單、Enter、Esc） | `herdr agent send-keys <name> enter\|esc\|down\|up` | |
 | 關 session 並移除 worktree | `herdr worktree remove --workspace <ws> [--force]` | |

@@ -11,7 +11,20 @@ gh issue view <N> --json number,title,body,labels,url,state
 JSON 欄位：`number`（編號）、`title`、`body`（內文）、`labels`（**物件陣列**，取 `.name`）、`url`、`state`。
 使用者給的是 URL（`https://github.com/<owner>/<repo>/issues/<N>`）時取最後一段當 `<N>`；`gh issue view` 也直接吃 URL。
 
-## 建 issue
+## 列出 open issue / open PR
+
+```bash
+gh issue list --state open --limit 100 --json number,title,labels,url
+gh pr list --state open --limit 100 \
+  --json number,title,headRefName,baseRefName,isDraft,mergeable,mergeStateStatus,statusCheckRollup,closingIssuesReferences,url
+```
+
+- `labels` 是物件陣列（取 `.name`）。
+- PR 對應 issue：`closingIssuesReferences[].number`（PR 內文有 `Closes #N`）；沒有時再從 `headRefName` 的 `<prefix><N>-<slug>` 取編號。
+- CI 概況：`statusCheckRollup[]` 的 `conclusion`（`SUCCESS` / `FAILURE`…）與 `status`（`IN_PROGRESS`…）；空陣列 = 沒跑 CI（常見原因是衝突）。
+- issue 超過 100 個時加 `--label` / `--search` 縮小，或問使用者範圍。
+
+
 
 ```bash
 gh issue create \

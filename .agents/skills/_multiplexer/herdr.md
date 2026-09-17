@@ -66,7 +66,19 @@ herdr agent list      # .result.agents[] 的 name / agent_status / cwd / pane_id
 
 `idle` 與 `done` 本質相同（都在等輸入），`done` = 使用者還沒在 UI 看過；CLI 讀取不會把 `done` 變 `idle`。
 
-## 等任一條線停下
+## 列出所有 agent／session
+
+```bash
+herdr agent list                                          # .result.agents[]：name / agent / agent_status / cwd / workspace_id / pane_id
+herdr workspace list                                      # .result.workspaces[]：workspace_id / label / agent_status / worktree
+herdr worktree list --workspace "$HERDR_WORKSPACE_ID"     # .result.worktrees[]：path / branch / open_workspace_id（null = 沒有開 session）
+```
+
+- `worktree list` 列的是**同一個 repo** 的所有 worktree（含主 checkout，`is_linked_worktree: false`）；用 `open_workspace_id` 對回 workspace、用 `path` 對回 agent 的 `cwd`。
+- 沒有 `name` 的 agent 是使用者自己開的或名稱已被清掉；cwd 在本 repo 的 worktree 下仍可能是某條線，重新命名前先讀畫面確認：`herdr agent rename <pane_id> <name>`。
+- 只挑 cwd 落在本 repo（主 checkout 或 `worktree_root` 底下）的 agent，其他專案的不要碰。
+
+
 
 herdr 沒有「等多個 agent 其中一個」的指令，用輪詢 loop（在背景執行：Claude Code 用 Bash 背景執行；Codex 前景執行並設 timeout）：
 

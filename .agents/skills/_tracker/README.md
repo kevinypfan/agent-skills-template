@@ -22,6 +22,8 @@ git remote get-url origin
 
 | 動作 | GitLab（`glab`） | GitHub（`gh`） | 備註 |
 |---|---|---|---|
+| 列出 open issue | `glab issue list --output json --per-page 100` | `gh issue list --state open --limit 100 --json number,title,labels,url` | 調度盤點用 |
+| 列出 open PR | `glab mr list --output json --per-page 100` | `gh pr list --state open --limit 100 --json number,title,headRefName,baseRefName,mergeable,mergeStateStatus,statusCheckRollup,closingIssuesReferences,url` | 含 head／base 分支；GitLab 的 CI 與可否合併要逐個「看 PR 可否合併」 |
 | 看 issue（JSON） | `glab issue view <N> --output json` | `gh issue view <N> --json number,title,body,labels,url` | 欄位名不同，見各檔「JSON 欄位」 |
 | 建 issue | `glab issue create --title --label --assignee --description` | `gh issue create --title --label --assignee --body` | GitLab `--description` ≡ GitHub `--body` |
 | 查目前分支的 PR | `glab mr view "$BRANCH" --output json` | `gh pr view "$BRANCH" --json number,title,baseRefName,url,state` | 兩邊都以分支名查；不存在時非零 exit |

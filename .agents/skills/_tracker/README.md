@@ -35,6 +35,8 @@ git remote get-url origin
 | 檢查 token 權限 | `glab auth status` | `gh auth status`（看 Token scopes） | 見各檔「token 權限」；不足時請使用者補，不要改用別的帳號 |
 | 在 issue 留言 | `glab issue note <N> --message` | `gh issue comment <N> --body-file <file>` | 記錄決定用；長內文先寫暫存檔 |
 | 看 PR CI 狀態（含等待） | `glab ci status --branch <b> [--wait]` | `gh pr checks <N> [--watch]` | 0 個 check 常代表 PR 有衝突、CI 沒跑，見各檔 |
+| 看 PR 會關閉哪些 issue | `glab api projects/:id/merge_requests/<N>/closes_issues`（`[].iid`） | `gh pr view <N> --json closingIssuesReferences`（`[].number`） | merge 前核對；只應包含這個 PR 完整解決的 issue。關鍵字規則見各檔「自動關閉關鍵字」 |
+| 重新打開 issue | `glab issue reopen <N>` | `gh issue reopen <N> --comment <text>` | 被誤關時用；GitLab 另外 [tracker] 在 issue 留言說明 |
 | 看 PR 可否合併 | `glab mr view <N> --output json`（`detailed_merge_status`、`has_conflicts`） | `gh pr view <N> --json mergeable,mergeStateStatus` | 可合併的判準見各檔 |
 | merge PR | `glab mr merge <N> --auto-merge=false [--squash\|--rebase] --message` | `gh pr merge <N> --merge\|--squash\|--rebase --subject --body` | 方法依 conventions 的 `merge_method`；GitLab 務必 `--auto-merge=false` |
 | 更新 PR 分支（base 併進來） | `glab mr rebase <N>`（會改寫歷史）或本地 merge base 後 push | `gh pr update-branch <N>`（merge，不 force push） | |

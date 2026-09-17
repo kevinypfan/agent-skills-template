@@ -61,6 +61,14 @@ gh pr create \
 - `--label` 為空時整個 flag 省略
 - fork 流程（head 在 fork）要加 `--head <user>:<branch>`；本 template 假設同 repo 分支
 
+## 自動關閉關鍵字
+
+PR 內文（以及 merge 進預設分支的 commit message）只要出現 **`close` / `closes` / `closed` / `fix` / `fixes` / `fixed` / `resolve` / `resolves` / `resolved` 緊接 `#N`**（大小寫不拘、不看上下文），PR merge 時 GitHub 就會關閉該 issue。
+
+- 只完成 issue 一部分的 PR（例如拆成 core PR 與 bindings PR）**整份內文與 commit message 都不能出現上述組合**，連「PR 2 會 close #46」「屆時 close #46」這種敘述也會觸發（實際踩過：issue 被提早關閉）。改寫成 `Refs #N`、「完成後由 PR 2 關閉 issue #N」這類不含關鍵字緊鄰 `#N` 的說法。
+- merge 前用 `gh pr view <N> --json closingIssuesReferences --jq '[.closingIssuesReferences[].number]'` 核對；多出不該關的 issue 就先改 PR 內文（`gh pr edit <N> --body`）。
+- 已經誤關：`gh issue reopen <N> --comment "<原因與剩餘工作>"`。
+
 ## 更新 PR 描述 / 留總結 comment
 
 ```bash

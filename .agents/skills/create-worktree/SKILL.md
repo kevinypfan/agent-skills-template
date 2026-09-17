@@ -29,7 +29,7 @@ The user input may contain:
 
 ## Step 0: 讀設定
 
-1. 讀 `.agents/conventions.md` 取 `base_branch`、`worktree_root`、`branch_prefix`。
+1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `base_branch`、`worktree_root`、`branch_prefix`。
    `worktree_root` 用預設時實際路徑 = `$(dirname "$(git rev-parse --show-toplevel)")/$(basename "$(git rev-parse --show-toplevel)")-worktrees`。
 2. 依 `.agents/skills/_tracker/README.md` 判斷 tracker，讀對應 `.agents/skills/_tracker/<tracker>.md`。
 

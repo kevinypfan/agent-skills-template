@@ -1,7 +1,36 @@
 # 專案慣例（複製 template 後**只需改這一檔**）
 
-所有 issue-flow skill 執行時先讀本檔取值；本檔沒寫的就用「預設」欄。
-skill 本文**不得**硬編這些值，改值一律改這裡。
+所有 issue-flow skill 執行時依下方「設定來源與優先序」取值；都沒寫的就用「預設」欄。
+skill 本文**不得**硬編這些值，改值一律改這裡（個人偏好改個人覆寫層，見下）。
+
+## 設定來源與優先序
+
+每個 key 依序找第一個**明確設定**的來源：
+
+1. **專案** `.agents/conventions.md`（repo 根的本檔）——該 key 那列「本專案值」欄非空（`（同預設）` 也算明確設定為預設值）
+2. **個人** `~/.agents/conventions.local.md`——只列要覆寫的 key，所有專案共用；不進 template repo、`scripts/install-global.sh` 不建立也不刪除
+3. **template** `~/.agents/conventions.md`（全域安裝時是 symlink，指向 template repo 自己的本檔）——只取「預設」欄；專案檔不存在、或專案檔沒有該 key 那列時，改用文末「repo 沒有本檔時」的推斷規則
+
+- 使用者在 user input 臨時指定的值（例如「這次不要自動 merge」）優先於以上全部，只影響本次、不寫檔。
+- 回報／預覽要標出非專案設定的值來源：「（個人設定）」「（推斷自 <來源>）」「（預設）」。
+- **個人偏好（yolo、自動 merge…）不得寫進 template 的 `~/.agents/conventions.md`**：它是 symlink，寫進去等於改 template repo、會被 commit 成所有人的預設。skill 要保存設定時只寫個人檔或專案檔。
+
+### 寫入規則（skill 保存使用者選擇時）
+
+- 只改對應 key 那一列（沒有就在表尾新增），不重排、不改寫其他內容。
+- 個人檔不存在就建立，格式：
+
+```
+# 個人 conventions 覆寫（~/.agents/conventions.local.md）
+
+只列要覆寫的 key；優先序：專案 .agents/conventions.md > 本檔 > template 預設。
+
+| key | 值 | 備註 |
+|---|---|---|
+| `auto_merge` | `false` | |
+```
+
+- 專案檔不存在就建立最小檔：本檔開頭兩段說明 + 主表表頭 + 要寫入的那幾列（四欄照主表；「預設」「用途」欄從 template 抄）。沒列出的 key 仍照上面的優先序往下找。
 
 | key | 預設 | 本專案值 | 用途 |
 |---|---|---|---|
@@ -21,6 +50,15 @@ skill 本文**不得**硬編這些值，改值一律改這裡。
 | `test_command` | （無） | | `fix-issue` Step 3 跑的測試指令（可依路徑分列） |
 | `lint_command` | （無） | | `fix-issue` Step 3 跑的 lint 指令 |
 | `language` | 繁體中文 | | 對話、issue、PR 內文的語言；commit message 語言另見 `commit_language` |
+| `multiplexer` | `auto` | | `orchestrate-issues` 開 agent session 用的 terminal multiplexer：`auto` / `herdr` / `none`。偵測與動作對照見 `.agents/skills/_multiplexer/README.md` |
+| `agent_kind` | 目前所在的 agent | | 調度時開新 session 啟動的 agent（`claude` / `codex`…） |
+| `agent_start_args` | （無） | | 啟動 agent 的額外參數。yolo mode 在這裡開（Claude `--dangerously-skip-permissions`；Codex `--dangerously-bypass-approvals-and-sandbox`），預設關閉 |
+| `auto_merge` | `false` | | `orchestrate-issues`：`true` = review 無 blocker、CI 全綠、可合併時自動 merge；`false` = 每個 PR merge 前問使用者 |
+| `merge_method` | `merge` | | `merge` / `squash` / `rebase` |
+| `merge_subject` | 依 `git log --merges` 慣例 | | merge commit subject 格式（如 `Merge pull request #<N> from <branch>`、`<PR title> (#<N>)`） |
+| `delete_branch_after_merge` | `true` | | 收尾時是否刪除已 merge 的本地與遠端分支 |
+| `max_parallel_lanes` | `4` | | 同時進行的 agent 線數上限 |
+| `review_policy` | 改對外契約或 ≥3 檔派 reviewer | | PR 關卡何時派 `reviewer` agent（沿用 `global/AGENT-ROLES.md` 的門檻） |
 
 ## 範例（填好的樣子）
 
@@ -39,11 +77,16 @@ verify_commands:
   ^.{2} web/.*\.tsx?$ → pnpm --filter web test
 test_command: pnpm test <files>（TS）/ go test ./...（Go）
 lint_command: pnpm run lint（TS）/ golangci-lint run（Go）
+multiplexer: auto
+agent_kind: claude
+auto_merge: false
+merge_method: squash
+max_parallel_lanes: 3
 ```
 
 ## repo 沒有本檔時（全域安裝）
 
-你讀的若是 `~/.agents/conventions.md`——代表 repo 根沒有自己的 `.agents/conventions.md`、skill / 角色是從全域安裝來的——上表「本專案值」欄與上面的範例**都不適用**（那是 template 的示範值）。逐 key 依下表從**當前 repo** 推斷：
+適用於：repo 根沒有自己的 `.agents/conventions.md`（你讀到的是全域安裝的 `~/.agents/conventions.md`），**或**專案檔存在但沒有某 key 那列——且個人 `~/.agents/conventions.local.md` 也沒有該 key。此時上表「本專案值」欄與上面的範例**都不適用**（那是 template 的示範值），該 key 依下表從**當前 repo** 推斷：
 
 | key | 推斷方式 |
 |---|---|
@@ -57,8 +100,12 @@ lint_command: pnpm run lint（TS）/ golangci-lint run（Go）
 | `commit_trailer` | host 有給 commit attribution 指示（如 Claude Code 的 system reminder）就用 host 的；否則「預設」欄 |
 | `test_command` / `lint_command` / `verify_commands` | 依序找第一個有寫的來源：repo 規範檔（`CLAUDE.md` / `AGENTS.md` / `CONTRIBUTING.md`）→ `Makefile` 的 test / check / lint target → `package.json` scripts → `Cargo.toml`（`cargo test` / `cargo clippy`）→ `pyproject.toml`（pytest / ruff）→ `.github/workflows` / `.gitlab-ci.yml` 實際跑的指令。多語言 repo 依改動路徑分列 |
 | `language` | repo 規範檔的語言政策；沒寫就用「預設」欄 |
+| `multiplexer` / `auto_merge` / `merge_method` / `delete_branch_after_merge` / `max_parallel_lanes` / `review_policy` | 用「預設」欄；`orchestrate-issues` 首次使用時會引導設定並存進個人檔或專案檔 |
+| `agent_kind` | 目前執行 skill 的 agent（Claude Code → `claude`、Codex → `codex`） |
+| `agent_start_args` | **不推斷**，預設空（不開 yolo）；只接受使用者明確選擇 |
+| `merge_subject` | `git log --merges -10 --format=%s` 的主要格式；沒有 merge commit 就用 tracker 預設 |
 
 規則：
-- 推斷出來的值在預覽 / 回報裡標「（推斷自 <來源>）」，讓使用者一眼看出哪些不是設定值。
+- 推斷出來的值在預覽 / 回報裡標「（推斷自 <來源>）」，個人檔來的標「（個人設定）」，讓使用者一眼看出哪些不是專案設定值。
 - 推斷不出、而當下步驟又必須用到 → 停下來問使用者，不要套示範值硬做。
-- 同一 repo 反覆用到、推斷又不穩時，建議使用者在 repo 放一份 `.agents/conventions.md` 固定下來。
+- 同一 repo 反覆用到、推斷又不穩時，建議使用者在 repo 放一份 `.agents/conventions.md` 固定下來；只是個人偏好就放 `~/.agents/conventions.local.md`。

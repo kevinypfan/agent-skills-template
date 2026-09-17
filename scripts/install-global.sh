@@ -4,6 +4,7 @@
 #
 #   ~/.agents/roles            → .agents/roles            symlink  角色本體（stub 找不到 repo 版時讀這裡）
 #   ~/.agents/conventions.md   → .agents/conventions.md   symlink  repo 無 conventions 時的推斷規則
+#   ~/.agents/conventions.local.md                       不碰     個人覆寫層（使用者 / skill 自建；不建立、--uninstall 也不刪）
 #   ~/.agents/skills/<s>       → .agents/skills/<s>       symlink  skill 真身（Codex 直接掃；含 _tracker）
 #   ~/.claude/skills/<s>       → .claude/skills/<s>       symlink  Claude skill stub
 #   ~/.claude/agents/<r>.md    → .claude/agents/<r>.md    symlink  Claude agent stub

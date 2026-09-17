@@ -30,6 +30,15 @@ git remote get-url origin
 | 更新 PR 描述 | `glab mr update <N> --description` | `gh pr edit <N> --body` | |
 | 留 PR 總結 comment | `glab mr note <N> --message` | `gh pr comment <N> --body` | |
 | 取自己帳號 | `glab api user`（`.username`） | `gh api user`（`.login`） | 過濾「自己留的 comment」用 |
+| 檢查 token 權限 | `glab auth status` | `gh auth status`（看 Token scopes） | 見各檔「token 權限」；不足時請使用者補，不要改用別的帳號 |
+| 在 issue 留言 | `glab issue note <N> --message` | `gh issue comment <N> --body-file <file>` | 記錄決定用；長內文先寫暫存檔 |
+| 看 PR CI 狀態（含等待） | `glab ci status --branch <b> [--wait]` | `gh pr checks <N> [--watch]` | 0 個 check 常代表 PR 有衝突、CI 沒跑，見各檔 |
+| 看 PR 可否合併 | `glab mr view <N> --output json`（`detailed_merge_status`、`has_conflicts`） | `gh pr view <N> --json mergeable,mergeStateStatus` | 可合併的判準見各檔 |
+| merge PR | `glab mr merge <N> --auto-merge=false [--squash\|--rebase] --message` | `gh pr merge <N> --merge\|--squash\|--rebase --subject --body` | 方法依 conventions 的 `merge_method`；GitLab 務必 `--auto-merge=false` |
+| 更新 PR 分支（base 併進來） | `glab mr rebase <N>`（會改寫歷史）或本地 merge base 後 push | `gh pr update-branch <N>`（merge，不 force push） | |
+| 改 PR base | `glab mr update <N> --target-branch <b>` | `gh pr edit <N> --base <b>` | 疊分支的前一個 PR merge 後用 |
+| 手動觸發 workflow / pipeline | `glab ci run --branch <b>` | `gh workflow run <file> --ref <b>` + `gh run watch <run>` | |
+| 看失敗 job log | `glab ci trace <job-id>` | `gh run view <run> --job <job> --log-failed` | |
 | 在 diff 上留 inline comment | 見 `gitlab.md`「inline comment」 | 見 `github.md`「inline comment」 | 語意不對等；**本版兩邊皆未提供**，skill 遇到就跳過該步 |
 | 回覆 / resolve inline thread | 同上 | 同上（resolve 只有 GraphQL） | 同上 |
 
@@ -40,6 +49,7 @@ git remote get-url origin
 | PR | Merge Request（MR） | Pull Request |
 | `<N>` | MR / issue 的 **iid**（專案內編號） | number |
 | 開發分支（`base_branch`） | target branch | base branch |
+| CI | pipeline | checks / workflow run |
 | 總結 comment | note | issue comment |
 | inline thread | discussion | review thread |
 

@@ -25,7 +25,7 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 ## Step 0: 讀設定
 
-1. 讀 `.agents/conventions.md` 取 `base_branch`、`test_command`、`lint_command`、`commit_language`、`language`。
+1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `base_branch`、`test_command`、`lint_command`、`commit_language`、`language`。
 2. 依 `.agents/skills/_tracker/README.md` 判斷 tracker，讀對應 `.agents/skills/_tracker/<tracker>.md`。
 
 ## Workflow
@@ -99,6 +99,7 @@ commit-push-pr 會處理：self-review → 驗證閘門 → staging → commit �
 ## Important Notes
 
 - **假設已在正確的 branch/worktree 上**
+- **被 skill `orchestrate-issues` 調度時**：指令裡給的範圍限制（不要碰的檔案）與 PR base／疊分支規則，優先於 conventions 的預設（例如 `base_branch`）；需要越出範圍就停下回報，不自行擴大
 - **不自動 assign issue** — 避免未經確認的副作用
 - **分析完畢必須等使用者確認**才能動手改 code
 - **不自己處理 commit/PR** — 一律透過 skill `commit-push-pr`

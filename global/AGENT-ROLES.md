@@ -12,4 +12,6 @@ scout 找、runner 跑、reviewer 挑、worker 做、architect 判（見 `~/.age
 - spec 已明確且與主線討論脫鉤的實作 → `worker`
 - 要動 API 形狀 / schema / 部署順序，或有多個做法要取捨 → `architect`
 
+**多 issue 調度**：一次處理多個 issue、要開多條 agent 線時，主 session 用 skill `orchestrate-issues`（各線跑 `fix-issue`）；主 session 自己的 sub agent 仍依上面的政策派。
+
 **不要派**：已知檔案的單點查詢、一兩行的改動、需要當下對話脈絡才判斷得出來的問題——sub agent 拿不到這段對話，把背景重打一遍比自己做還慢，而且它只回摘要、細節會遺失。

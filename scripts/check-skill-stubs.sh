@@ -6,6 +6,7 @@
 #     - 附屬檔不用 ../ 或裸 assets|references|scripts|templates/（stub 轉跳後 cwd 是 repo 根）
 #     - 呼叫其他 skill 不寫 Claude slash 語法（起行的「/name …」或反引號包住的「`/name`」）、不並列 per-tool 語法
 #     - 不硬編 tracker CLI（glab / gh）——動作名寫「[tracker] …」，指令只放 .agents/skills/_tracker/
+#     - 不含 multiplexer CLI 名（herdr…）——動作名寫「[multiplexer] …」，指令只放 .agents/skills/_multiplexer/
 #     - 開頭必有「先決定照哪一份跑」讓位段（全域安裝時讓位給專案客製版；見 .agents/skills/README.md）
 #  3. agent（若有 .agents/roles/）：roles / .claude/agents / .codex/agents 三集合一致；description 非空且兩邊逐字相同；
 #     stub 本文逐字 canonical；Claude tools 含 Edit/Write ⟺ Codex workspace-write（例外見 WRITE_SANDBOX_EXCEPTIONS）；
@@ -40,8 +41,13 @@ body_rule '(^|[^.])\.\./|(^|[ (`\[])(assets|references|scripts|templates)/' \
 body_rule '^/('"$skills"')( |$)|`/('"$skills"')[` ]|Codex `\$[a-z-]+`|subagent_type `|Codex spawn' \
   '共用真身在呼叫點用了 Claude/Codex 專屬語法（只寫「呼叫 skill `name`」／「派給 `role` agent」）：'
 # tracker CLI 只准出現在 _tracker/ 與 frontmatter compatibility 行；本文其他地方出現 glab/gh 指令即擋
-if hits=$(grep -nE '(^|[^a-zA-Z`])(glab|gh) (issue|mr|pr|api|auth)\b' .agents/skills/*/SKILL.md | grep -v '^[^:]*:[0-9]*:compatibility:'); then
+if hits=$(grep -nE '(^|[^a-zA-Z`])(glab|gh) (issue|mr|pr|api|auth|ci|run|workflow)\b' .agents/skills/*/SKILL.md | grep -v '^[^:]*:[0-9]*:compatibility:'); then
   echo "✗ 共用真身硬編 tracker 指令（改寫成「[tracker] 動作名」，指令放 .agents/skills/_tracker/<tracker>.md）："; echo "$hits" | sed 's/^/    /'; fail=1
+fi
+# multiplexer CLI 名連說明文字都不准出現（compatibility 行例外）；新增 multiplexer 時把 CLI 名加進 MULTIPLEXER_CLIS
+MULTIPLEXER_CLIS="herdr"
+if hits=$(grep -niwE "$(echo "$MULTIPLEXER_CLIS" | tr ' ' '|')" .agents/skills/*/SKILL.md | grep -v '^[^:]*:[0-9]*:compatibility:'); then
+  echo "✗ 共用真身出現 multiplexer CLI 名（改寫成「[multiplexer] 動作名」，指令放 .agents/skills/_multiplexer/<multiplexer>.md）："; echo "$hits" | sed 's/^/    /'; fail=1
 fi
 # 讓位段：全域版（~/.agents/skills/）在專案有同名 skill 時必須讓位——Claude 端全域 skill 會蓋掉專案版，Codex 端兩份並列
 for real in .agents/skills/*/SKILL.md; do
@@ -54,6 +60,10 @@ done
 # _tracker 必備檔
 for f in README.md gitlab.md github.md; do
   [ -f ".agents/skills/_tracker/$f" ] || { echo "✗ 缺 .agents/skills/_tracker/$f"; fail=1; }
+done
+# _multiplexer 必備檔：README + MULTIPLEXER_CLIS 每個一份
+for f in README.md $(for m in $MULTIPLEXER_CLIS; do echo "$m.md"; done); do
+  [ -f ".agents/skills/_multiplexer/$f" ] || { echo "✗ 缺 .agents/skills/_multiplexer/$f"; fail=1; }
 done
 [ -f .agents/conventions.md ] || { echo "✗ 缺 .agents/conventions.md（issue-flow skill 的專案設定）"; fail=1; }
 # ---- agent roles（沒有 .agents/roles/ 就整段跳過）----

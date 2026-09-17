@@ -61,6 +61,72 @@ gh pr comment <N> --body "<內文>"
 gh api user --jq .login
 ```
 
+## token 權限
+
+```bash
+gh auth status   # 看 "Token scopes"
+```
+
+- 一般流程需要 `repo`。
+- **PR 改到 `.github/workflows/`、且 base 上的 workflow 也變過**時，merge 與 update-branch 需要 `workflow` scope。沒有時症狀是 PR 一直 `BLOCKED`、`gh pr update-branch` 報 `refusing to allow an OAuth App to create or update workflow`。
+- 不足就停下請使用者自己執行 `gh auth refresh -s workflow`（會開瀏覽器授權），不要改用其他 token。
+
+## 在 issue 留言
+
+```bash
+gh issue comment <N> --body-file <file>   # 短內文可用 --body "<內文>"
+```
+
+## 看 PR CI 狀態
+
+```bash
+gh pr checks <N>                       # 一次性；exit 0 = 全綠、1 = 有失敗、8 = 仍在跑
+gh pr checks <N> --watch --fail-fast   # 等到結束
+gh pr checks <N> --json name,state,link,workflow
+```
+
+- 顯示 `no checks reported` / 0 個 check：PR 與 base **有衝突時 GitHub 不跑 `pull_request` CI**，先看「可否合併」、解衝突再等 CI。
+- checks 是在 base 變動前跑的（別的 PR 剛 merge、尤其動到同檔案）→ 先「更新 PR 分支」讓 CI 以新 base 重跑。
+
+## 看 PR 可否合併
+
+```bash
+gh pr view <N> --json mergeable,mergeStateStatus,baseRefName,headRefName
+```
+
+- `mergeable`：`MERGEABLE` / `CONFLICTING` / `UNKNOWN`（剛 push 時是 UNKNOWN，隔幾秒再查）
+- `mergeStateStatus`：`CLEAN` 才算可 merge；`BEHIND` = 需更新分支；`BLOCKED` = required check / review 未過（或 token 缺 `workflow` scope，見上）；`DIRTY` = 衝突；`UNSTABLE` = 非 required check 失敗
+
+## merge PR
+
+```bash
+gh pr merge <N> --merge --subject "<merge_subject>" --body "<body>"   # merge_method=merge
+gh pr merge <N> --squash --subject "<subject>" --body "<body>"         # squash
+gh pr merge <N> --rebase                                                # rebase（無 subject）
+```
+
+- 不加 `--delete-branch`：刪分支由收尾步驟依 `delete_branch_after_merge` 處理（疊分支時下一個 PR 還指著它當 base）。
+- merge 後 `gh issue view <issue> --json state` 確認 issue 已因 `Closes #<issue>` 自動關閉。
+
+## 更新 PR 分支 / 改 PR base
+
+```bash
+gh pr update-branch <N>            # 把 base merge 進 head，不 force push
+gh pr edit <N> --base <branch>
+```
+
+## 手動觸發 workflow 與看 log
+
+```bash
+gh workflow run <workflow-file> --ref <branch>
+gh run list --workflow <workflow-file> --branch <branch> --limit 1 --json databaseId,status,conclusion
+gh run watch <run-id> --exit-status
+gh run view <run-id> --json jobs --jq '.jobs[] | select(.conclusion=="failure") | .databaseId'
+gh run view <run-id> --job <job-id> --log-failed
+```
+
+`gh workflow run` 不回傳 run id：觸發後隔幾秒用 `gh run list` 取最新一筆。
+
 ## inline comment（diff 上的 review comment）
 
 **本版未提供。** 對應 API 為 `POST repos/{owner}/{repo}/pulls/<N>/comments`（定位用 `commit_id + path + line + side`，與 GitLab 三 sha 不同）、回覆用 `pulls/<N>/comments/{id}/replies`、**resolve 只有 GraphQL `resolveReviewThread`**。之後移植 review skill 時補在這裡；skill 遇到「inline comment」步驟且本節仍是此狀態就**跳過該步並告知使用者**。

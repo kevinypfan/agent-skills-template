@@ -149,6 +149,7 @@ You **MUST** consider the user input before proceeding. The user input may conta
    - 已決定事項：「見 issue #<N> <日期> 的留言，照做」
    - **範圍限制**：其他線正在改的檔案／模組清單，「不要修改；需要改就停下回報」
    - **疊分支規則**（有才寫）：本分支從哪個分支開、`commit-push-pr` 的 target branch、「base 分支 merge 後 PR base 會由主 session 改回 `base_branch`」
+   - **關閉 issue 的方式**（issue 拆成多個 PR 時必寫）：「本 PR 只完成一部分，PR 內文與 commit message 只寫 `Refs #<N>`，不得出現自動關閉關鍵字緊接 `#<N>`（見 `_tracker/<tracker>.md`『自動關閉關鍵字』）」
    - 「方案確認、self-review 等需要決定的點照 `fix-issue` 流程停下等回覆」
 4. **確認指令真的送出**：[multiplexer] 查狀態，幾秒內沒變 `working` → [multiplexer] 讀 agent 畫面；輸入框殘留文字未送出就 [multiplexer] 送按鍵（選單、Enter、Esc）送 Enter。
 
@@ -179,7 +180,8 @@ You **MUST** consider the user input before proceeding. The user input may conta
 4. **merge**：
    - `auto_merge` 為 `false` → 列出 PR、review 結論、CI 結果，問使用者是否 merge。
    - `auto_merge` 為 `true` → review 無 blocker、CI 全綠、[tracker] 看 PR 可否合併為可合併狀態，三者皆成立才 merge。
-   - [tracker] merge PR：方法 = `merge_method`，subject 依 `merge_subject`。merge 後確認關聯 issue 已自動關閉，沒關就回報使用者。
+   - merge 前 [tracker] 看 PR 會關閉哪些 issue：必須正好是這個 PR 完整解決的 issue。多出只完成一部分的 issue（常見於內文寫了「之後會 close #N」）→ 先改 PR 內文再 merge；少了該關的 → 補上關閉語法或 merge 後手動處理。
+   - [tracker] merge PR：方法 = `merge_method`，subject 依 `merge_subject`。merge 後確認關聯 issue 已自動關閉，沒關就回報使用者；**被誤關的 issue 用 [tracker] 重新打開 issue**，留言寫明剩餘工作。
 5. **疊分支**：前一個 PR merge 後，下一個 PR [tracker] 改 PR base 為 `base_branch`，再 [tracker] 更新 PR 分支（base 併進來）讓 CI 以新 base 重跑；並通知該線 agent base 已改。
 6. 同一批 merge 了多個動到同檔案的 PR 後，在 `base_branch` 上跑一次測試（派給 `runner` agent，指令取 conventions 的 `test_command`）或確認 `base_branch` 的 CI 綠燈。
 

@@ -60,6 +60,14 @@ glab mr create \
 - ⚠ **不要加 `--reviewer "@owners"`**：`@owners` 不是 valid username（沒有 CODEOWNERS 展開），`glab mr create` 會失敗 `failed to find user by name: @owners`。要指定 reviewer 寫真實 username
 - `--label` 為空時整個 flag 省略（空字串會報錯）
 
+## 自動關閉關鍵字
+
+MR 描述（以及 merge 進預設分支的 commit message）出現 **`Close` / `Closes` / `Closed` / `Closing`、`Fix` / `Fixes` / `Fixed` / `Fixing`、`Resolve` / `Resolves` / `Resolved` / `Resolving`、`Implement` / `Implements` / `Implemented` / `Implementing` 緊接 `#N`**（大小寫不拘；專案可在設定改 closing pattern），MR merge 時 GitLab 就會關閉該 issue。
+
+- 只完成 issue 一部分的 MR **整份描述與 commit message 都不能出現上述組合**，連「之後的 MR 會 close #46」這種敘述也會觸發。改寫成 `Related to #N`、「完成後由下一個 MR 關閉 issue #N」這類說法。
+- merge 前核對：`glab api projects/:id/merge_requests/<N>/closes_issues | jq '[.[].iid]'`（`glab api` 沒有 `--jq`，接 `jq`）；多出不該關的 issue 就先 `glab mr update <N> --description` 改掉。
+- 已經誤關：`glab issue reopen <N>`，再 `glab issue note <N> --message "<原因與剩餘工作>"`。
+
 ## 更新 PR 描述 / 留總結 comment
 
 ```bash

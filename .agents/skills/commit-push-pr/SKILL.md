@@ -111,7 +111,7 @@ git push -u origin "$(git branch --show-current)"
 
 1. 讀 `.agents/skills/commit-push-pr/assets/pr-template.md`
 2. 替換佔位符：
-   - `{{RELATED_ISSUES}}` → 相關 issue/PR 連結，若無寫「無」
+   - `{{RELATED_ISSUES}}` → 相關 issue/PR 連結，若無寫「無」。**這個 PR 完整解決 issue 才寫關閉語法**（如 `Closes #N`）；只完成一部分、或 issue 拆成多個 PR 時寫 `Refs #N`，而且**整份內文與 commit message 都不能出現 tracker 的自動關閉關鍵字緊接 `#N`**（連「之後的 PR 會 close #N」這種敘述也會觸發，關鍵字清單見 `_tracker/<tracker>.md`「自動關閉關鍵字」）
    - `{{SUMMARY}}` → 目的和主要變更
    - `{{CHANGES}}` → 變更內容（bullet points）
    - `{{TESTING}}` → 如何測試；有新增/修改測試案例則逐一條列

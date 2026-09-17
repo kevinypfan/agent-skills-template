@@ -8,7 +8,7 @@
 - 同一份邏輯有多處實作（前後端、多語言、docs）時，改一處要在回報裡點名其他處是否需要同步——**不自行改**，除非 spec 包含
 
 ## 規範
-- 專案值（測試指令、commit scope、語言）一律查 `.agents/conventions.md`，不要硬編自己的假設
+- 專案值（測試指令、commit scope、語言）一律查 `.agents/conventions.md`（含個人覆寫 `~/.agents/conventions.local.md`，順序見該檔「設定來源與優先序」），不要硬編自己的假設
 - 沿用檔案既有風格：命名、錯誤處理、log、設定讀取方式，比你的個人偏好優先
 - 不新增依賴，除非 spec 明說
 

@@ -27,7 +27,7 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 ## Step 0: 讀設定
 
-1. 讀 `.agents/conventions.md` 取 `base_branch`、`pr_labels`、`pr_assignee`、`commit_scopes`、`commit_trailer`、`commit_language`、`verify_commands`、`language`。
+1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `base_branch`、`pr_labels`、`pr_assignee`、`commit_scopes`、`commit_trailer`、`commit_language`、`verify_commands`、`language`。
 2. 依 `.agents/skills/_tracker/README.md` 判斷 tracker，讀對應 `.agents/skills/_tracker/<tracker>.md`。下文 **[tracker] 動作** 一律查該檔。
 
 ## Workflow

@@ -11,7 +11,19 @@ glab issue view <N> --output json
 JSON 欄位：`iid`（編號）、`title`、`description`（內文）、`labels`（**字串陣列**）、`web_url`、`state`。
 使用者給的是 URL（`https://<host>/<group>/<repo>/-/issues/<N>`）時取最後一段當 `<N>`。
 
-## 建 issue
+## 列出 open issue / open PR
+
+```bash
+glab issue list --output json --per-page 100      # 預設只列 opened
+glab mr list --output json --per-page 100         # 預設只列 opened
+```
+
+- issue 欄位：`iid`、`title`、`labels`（字串陣列）、`web_url`。
+- MR 欄位：`iid`、`title`、`source_branch`（= head）、`target_branch`（= base）、`draft`、`web_url`；**列表不含可靠的 pipeline 與 `detailed_merge_status`**，要逐個 `glab mr view <N> --output json` 看 `head_pipeline.status`、`detailed_merge_status`、`has_conflicts`。
+- MR 對應 issue：內文 `Closes #N`，或從 `source_branch` 的 `<prefix><N>-<slug>` 取編號。
+- 超過 100 個時加 `--label` / `--search` 縮小，或問使用者範圍。
+
+
 
 ```bash
 glab issue create \
@@ -59,6 +71,71 @@ glab mr note <N> --message "<內文>"
 
 ```bash
 glab api user | python3 -c "import sys,json;print(json.load(sys.stdin)['username'])"
+```
+
+## token 權限
+
+```bash
+glab auth status
+```
+
+- 調度流程（merge、rebase、觸發 pipeline）需要 token 有 `api` scope；`read_api` 只能看。
+- merge 到受保護分支需要該分支的 merge 權限；改到 `.gitlab-ci.yml` 若專案限制 CI 設定變更，可能需要 Maintainer。
+- 不足就停下請使用者重新 `glab auth login`（或換有權限的 token），不要自己改用其他帳號。
+
+## 在 issue 留言
+
+```bash
+glab issue note <N> --message "<內文>"
+```
+
+## 看 PR CI 狀態
+
+```bash
+glab ci status --branch <source-branch>          # 一次性
+glab ci status --branch <source-branch> --wait   # 等 pipeline 結束
+glab mr view <N> --output json                   # head_pipeline.status / head_pipeline.id
+```
+
+- MR 有衝突時 merged-results pipeline 不會跑，先看「可否合併」。
+- pipeline 是在 target 變動前跑的 → 先「更新 PR 分支」讓 pipeline 重跑。
+
+## 看 PR 可否合併
+
+```bash
+glab mr view <N> --output json
+```
+
+看 `has_conflicts`（true = 衝突）與 `detailed_merge_status`：`mergeable` 才算可 merge；`need_rebase` = 需更新分支；`ci_must_pass` / `ci_still_running` = pipeline 未過；`not_approved` = 缺 approval；`conflict` = 衝突。
+
+## merge PR
+
+```bash
+glab mr merge <N> --auto-merge=false --message "<merge_subject>"   # merge_method=merge
+glab mr merge <N> --auto-merge=false --squash --message "<subject>"
+glab mr merge <N> --auto-merge=false --rebase
+```
+
+- ⚠ **一定要 `--auto-merge=false`**：pipeline 還在跑時 `glab mr merge` 預設開 auto-merge 並立刻返回，不是真的 merge 了。調度流程是 CI 通過後才 merge。
+- 不加 `--remove-source-branch`：刪分支由收尾步驟依 `delete_branch_after_merge` 處理。
+- merge 後 `glab issue view <issue> --output json` 看 `state` 確認 issue 已因 `Closes #<issue>` 關閉。
+
+## 更新 PR 分支 / 改 PR base
+
+```bash
+glab mr rebase <N>                          # 伺服器端 rebase：會改寫分支歷史
+glab mr update <N> --target-branch <branch>
+```
+
+不想改寫歷史（分支上有人在跟）就在該 worktree 本地 `git fetch origin && git merge origin/<target>` 後 push。
+
+## 手動觸發 pipeline 與看 log
+
+```bash
+glab ci run --branch <branch>
+glab ci status --branch <branch> --wait
+glab ci get --branch <branch> --output json   # jobs[].id / name / status
+glab ci trace <job-id>
 ```
 
 ## inline comment（diff 上的 discussion）

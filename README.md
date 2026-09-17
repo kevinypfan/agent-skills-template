@@ -10,7 +10,8 @@ Claude Code 與 Codex **共用**的骨架：一組 issue-flow skill（GitLab / G
 ├── skills/
 │   ├── README.md           ← 寫作規則
 │   ├── _tracker/           ← glab / gh 指令對照（非 skill）
-│   └── create-issue/  create-worktree/  fix-issue/  commit-push-pr/  ask-agents/
+│   ├── _multiplexer/       ← herdr 等 terminal multiplexer 指令對照（非 skill）
+│   └── create-issue/  create-worktree/  fix-issue/  commit-push-pr/  orchestrate-issues/  ask-agents/
 └── roles/                  ← 委派角色本體（唯一指令真相）
     └── scout  runner  reviewer  worker  architect
 .claude/skills/             ← 產生的 Claude skill stub（勿手改）
@@ -63,6 +64,7 @@ bash scripts/install-global.sh --uninstall  # 只移除本腳本裝的項目
 | Codex agent | 官方未說明；**不載入 symlink 的 toml** | `~/.codex/agents/` 改用複製（首行有標記）；stub 先找 repo 的角色本體 |
 
 - repo 沒有 `.agents/conventions.md` 時，skill / 角色讀到的是 `~/.agents/conventions.md`，照其「repo 沒有本檔時」段從 repo 推斷（`git log` 語言、`Makefile` / `package.json` 指令…），推斷值會標註來源。
+- **個人設定放 `~/.agents/conventions.local.md`**（只列要覆寫的 key，格式見 `.agents/conventions.md`「寫入規則」）。優先序：專案 `.agents/conventions.md` > 個人 local 檔 > template 預設／推斷。**不要改 `~/.agents/conventions.md`**——它是指回本 repo 的 symlink，改了等於改 template、會被 commit 成所有人的預設。`install-global.sh` 不建立也不刪除 local 檔；`orchestrate-issues` 首次使用時的引導設定預設就存到這裡。
 - 讓位時用的是專案版的**流程**，但觸發比對（description）在 Claude 端用的是全域版的。
 - symlink 指向本 repo 的 working tree：本 repo 切到哪個分支，全域就生效哪個版本。**例外是複製 / 區塊項目**（Codex agent、`~/.codex/AGENTS.md`）：靠上面的 git hook 自動同步；沒啟用 hook 就手動重跑 `--apply`，dry-run 會標「過期」。
 - skill 讓位段判斷「全域版」的依據是**檔案不在當前 repo 內**，而不是路徑字面是 `~/.agents`——Codex 會把 symlink 解析成本 repo 的實際路徑顯示。
@@ -76,6 +78,19 @@ bash scripts/install-global.sh --uninstall  # 只移除本腳本裝的項目
 | 前提 | 無 | Codex 需 trust 此專案才會載入 `.agents/` |
 
 skill 流程：`create-issue` → `create-worktree` → （新 session）`fix-issue` → `commit-push-pr`。
+
+**調度模式**（一次處理多個 issue）：主 session 呼叫 `orchestrate-issues`，它依檔案重疊分線，用 terminal multiplexer（目前支援 herdr；不在 multiplexer 內時退化成只建 worktree、請你自己開 session）替每條線開 worktree + agent session 跑 `fix-issue`，並監看各線、把關 review / CI / merge、收尾：
+
+```
+orchestrate-issues（主 session）
+├── 分線 → 方向決策寫進 issue 留言
+├── lane A: worktree + session → fix-issue → commit-push-pr ─┐
+├── lane B: worktree + session → fix-issue → commit-push-pr ─┤
+│                                                            ▼
+└── 監看各線 → PR 關卡（reviewer / CI / merge）→ 收尾（移除 worktree、刪分支）
+```
+
+merge 預設要問你（`auto_merge`）；yolo mode（`agent_start_args`）預設關閉。首次使用會引導設定這些 key 並記住。
 角色分工：**scout 找、runner 跑、worker 做、reviewer 挑、architect 判**（詳見 `.agents/roles/README.md`）。
 角色的 `description` 帶觸發語，主對話比對到就自己派；要更可靠再加 `CLAUDE.md` 政策段與 skill 本文的確定性派工。
 
@@ -84,7 +99,7 @@ skill 流程：`create-issue` → `create-worktree` → （新 session）`fix-is
 - skill：`mkdir .agents/skills/<name>` 寫 `SKILL.md`（規則見 `.agents/skills/README.md`）→ `bash scripts/generate-skill-stubs.sh` → commit。
 - 角色：`.agents/roles/<r>.md` 寫本體，再手寫 `.claude/agents/<r>.md` 與 `.codex/agents/<r>.toml` 兩份 stub（本文是 canonical 一句，守門逐字比對）→ commit。
 
-守門會擋：stub 與產生器輸出不符、手改 stub 本文、兩邊 description 不一致、讀寫權限兩邊不對稱、純讀角色本體漏掉唯讀守則句、skill 真身硬編 `glab` / `gh` 或用了 Claude 專屬 macro、skill 真身缺讓位段。
+守門會擋：stub 與產生器輸出不符、手改 stub 本文、兩邊 description 不一致、讀寫權限兩邊不對稱、純讀角色本體漏掉唯讀守則句、skill 真身硬編 `glab` / `gh`、出現 multiplexer CLI 名（`herdr`）或用了 Claude 專屬 macro、skill 真身缺讓位段。
 
 ## 已知未含
 

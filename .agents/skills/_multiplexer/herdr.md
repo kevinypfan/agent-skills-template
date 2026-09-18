@@ -16,6 +16,14 @@ herdr worktree create \
   --no-focus
 ```
 
+- **`--workspace` 不可省略。** 少了它，herdr 會回退去用 UI 當前聚焦的 workspace 來決定從哪個 repo 開 worktree——那可能是別的專案。失敗是無聲的：`--path` 照你給的位置建出來、`--branch` 照你給的名字建出來，只有內容是別的 repo，而且那個分支會留在別的 repo 裡。
+- **建完、放 agent 進去之前先驗一次**（省略 `--workspace` 只會在這裡現形）：
+
+  ```bash
+  git -C "$(...worktree.path)" rev-parse --git-common-dir   # 必須指向預期 repo 的 .git
+  ```
+
+  不符就 `herdr worktree remove --workspace <id> --force`，到被誤用的 repo `git worktree prune`、`git branch -D <branch>` 清掉殘留分支，再用正確的 `--workspace` 重建。派 agent 時也在 prompt 開頭要它自己確認一次，不符就停下回報——這樣就算建的時候沒發現，agent 也會先擋下來而不是改錯 repo。
 - 先 `git fetch origin <base>`；疊分支時 `--base` 用前一條分支（本地已有就用 `<prev-branch>`，只在遠端就 `origin/<prev-branch>`）。
 - 分支 / 目錄名照 `create-worktree` 的規則（`<prefix><N>-<slug>`、`issue-<N>-<slug>`）。
 - 回傳（`type: worktree_created`）：

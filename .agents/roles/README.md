@@ -6,12 +6,12 @@
 |---|---|---|---|---|
 | scout | `scout.md` | `.claude/agents/scout.md`（haiku） | `.codex/agents/scout.toml`（低 effort） | ✗ |
 | runner | `runner.md` | `.claude/agents/runner.md`（sonnet） | `.codex/agents/runner.toml`（中 effort） | ✗（sandbox 例外見下） |
-| reviewer | `reviewer.md` | `.claude/agents/reviewer.md`（sonnet） | `.codex/agents/reviewer.toml`（中 effort） | ✗ |
+| reviewer | `reviewer.md` | `.claude/agents/reviewer.md`（opus） | `.codex/agents/reviewer.toml`（高 effort） | ✗ |
 | worker | `worker.md` | `.claude/agents/worker.md`（sonnet） | `.codex/agents/worker.toml`（中 effort） | ✓ |
 | architect | `architect.md` | `.claude/agents/architect.md`（fable） | `.codex/agents/architect.toml`（高 effort） | ✗ |
 
 原則：**便宜 model 找與做、貴 model 判**。改行為改本體；改 model / effort / 權限改對應 stub。
-stub 裡的 model 名是範例，依預算調整。Claude 端寫別名（`haiku` / `sonnet` / `fable` / `opus`），CLI 自動用該系列最新版、不必維護；Codex 端沒有別名，填 slug（可用清單見 `~/.codex/models_cache.json`），**換代時要手動改**。目前 Codex 配置：scout `gpt-5.6-luna`、runner / reviewer / worker `gpt-5.6-terra`、architect `gpt-6-astra`。
+stub 裡的 model 名是範例，依預算調整。Claude 端寫別名（`haiku` / `sonnet` / `fable` / `opus`），CLI 自動用該系列最新版、不必維護；Codex 端沒有別名，填 slug（可用清單見 `~/.codex/models_cache.json`），**換代時要手動改**。目前 Codex 配置：scout `gpt-5.6-luna`、runner / worker `gpt-5.6-terra`、reviewer `gpt-5.6-sol`、architect `gpt-6-astra`。
 
 ## 共同守則（各角色本體不再重述）
 

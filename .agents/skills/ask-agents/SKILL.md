@@ -67,6 +67,7 @@ codex exec --sandbox read-only --skip-git-repo-check \
 ```
 
 - `-` = 從 stdin 讀 prompt；`-o` 把**乾淨的最終回覆**寫到檔案（stdout 混著 thinking 與 token 統計，不要從那裡撈答案）
+- **判斷有沒有答案要看檔案內容，不要看 exit code**：額度耗盡時 codex 常常 exit 0，但 `-o` 檔是空的或根本沒產生。空的就當 codex 不可用，回報給呼叫端決定 fallback；**不要重試 codex**，額度不會因為再送一次就回來（model not supported 是例外，見「常見陷阱」的 model fallback）
 
 **claude**（在 Codex 裡預設必問）：
 

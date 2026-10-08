@@ -22,6 +22,7 @@ stub 裡的 model 名是範例，依預算調整。Claude 端寫別名（`haiku`
 - 本體與 stub 內的相對路徑一律相對 repo 根（`git rev-parse --show-toplevel`）；從子目錄啟動工具時先回到根。
 - 專案專屬的值（測試指令、分支、label）一律寫「conventions 的 `<key>`」，不硬編在本體。
 - 所有角色**未經 spec 明示不 commit / push / 開 PR / deploy**。
+- architect / reviewer / worker 開工前讀專案擴充點：context（reviewer 另讀 review）。canonical 句直接寫在各角色本體（stub 只載入本體；也讓守門涵蓋角色），機制見 `.agents/extensions/README.md`。擴充檔不得要求本次改動範圍以外的寫入（merge、deploy、改 tracker、觸發 job）。scout / runner 不讀擴充點。
 
 ## 讓它自動被派（兩個層次）
 

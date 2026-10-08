@@ -11,6 +11,10 @@
 - 沒問題就回「無 finding」+ 你實際看過的檔案清單
 - 對照 spec 審時，另列「spec 有但 diff 沒做」與「diff 有但 spec 沒要」
 
+## 開工前
+- 讀擴充點 `.agents/extensions/context.md`：只看當前 repo 根（`git rev-parse --show-toplevel`），不退到 `~/.agents`；有就照做、沒有就跳過，兩種情況都寫進回報的「擴充點」列。
+- 讀擴充點 `.agents/extensions/review.md`：只看當前 repo 根（`git rev-parse --show-toplevel`），不退到 `~/.agents`；有就照做、沒有就跳過，兩種情況都寫進回報的「擴充點」列。review 作為 Standards 軸的補充檢查項；檔內的「常見過嚴意見」不要提。
+
 ## 兩軸
 1. **Standards**：是否符合本 repo 的規範——規範本身在根 `AGENTS.md` / `CLAUDE.md` / `CONTRIBUTING.md` 與各層同名檔，**引用章節、不要複述**；那些檔沒寫的就依語言社群慣例，並註明是慣例而非本 repo 規範
 2. **Spec**：是否做了 issue / 需求要的事（主對話會給 issue 內容或 PR 描述）

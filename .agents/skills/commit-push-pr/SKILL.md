@@ -45,10 +45,11 @@ git status --short
 
 ### Step 2: Self-Review (IMPORTANT)
 
-先對所有變更做一次審查（環境若有內建的 simplify / review 類 skill 可呼叫它；沒有就自己逐項過），三個角度：
+先對所有變更做一次審查（環境若有內建的 simplify / review 類 skill 可呼叫它；沒有就自己逐項過），四個角度：
 - **Reuse** — 是否有現有工具函式可取代新寫的 code
 - **Quality** — 冗餘狀態、copy-paste、leaky abstraction、不必要的註解
 - **Efficiency** — 不必要的計算、缺少並行、hot-path 問題
+- **專案 review 清單** — 讀擴充點 `.agents/extensions/review.md`：只看當前 repo 根（`git rev-parse --show-toplevel`），不退到 `~/.agents`；有就照做、沒有就跳過，兩種情況都寫進回報的「擴充點」列。逐項檢查清單，並避開檔內列的「常見過嚴意見」。檢查項只做判讀、不改檔；要修的照本 skill 既有的自審確認流程。
 
 **只做 review，不做 auto-fix。** 審查完成後：
 1. **列出問題清單**，讓使用者決定要修哪些
@@ -130,6 +131,8 @@ PR 建好後**詢問使用者**是否要在 diff 上留 inline comment 解釋非
 1. PR URL
 2. PR 內容摘要
 3. 若有留 inline comment，列出留了哪些
+4. 讀擴充點 `.agents/extensions/pre-merge.md`：只看當前 repo 根（`git rev-parse --show-toplevel`），不退到 `~/.agents`；有就照做、沒有就跳過，兩種情況都寫進回報的「擴充點」列。此處只讀出 `###` 標題，不執行任何「怎麼查」指令；本 skill 不等 CI，註明「merge 前由調度者（`orchestrate-issues` 5.3）或人工執行」。
+5. 固定一列：「擴充點：review 已套用／無；pre-merge：<名稱> 未檢查（未執行，merge 前由 orchestrate-issues 5.3 或人工執行）」，每個項目一筆；沒有 pre-merge 寫「pre-merge：無」
 
 ## Important Notes
 

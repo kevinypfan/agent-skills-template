@@ -43,6 +43,7 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 #### 2a. 分析問題、提出初步方案
 
+0. 讀擴充點 `.agents/extensions/context.md`：只看當前 repo 根（`git rev-parse --show-toplevel`），不退到 `~/.agents`；有就照做、沒有就跳過，兩種情況都寫進回報的「擴充點」列。（內容是「哪類改動先讀哪份文件」，依這次改動範圍讀對應文件後再分析。）`.agents/extensions/` 內有清單外的 .md（README.md、examples/ 除外）→ 回報警告、不執行。
 1. **搜尋相關程式碼** — 找出需要修改的檔案和函式
 2. **分析根本原因** — 理解問題本質，不只是表面症狀
 3. **列出修改方案**：
@@ -88,6 +89,8 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 ### Step 4: 呼叫 skill `commit-push-pr`
 
+呼叫 `commit-push-pr` 前，先向使用者列出建議更新的 context 文件（這次學到的新領域知識，含文件與要補的重點）；使用者同意、且在本次範圍內，就一起改。
+
 測試通過後，呼叫 skill `commit-push-pr`，參數：
 
 ```
@@ -95,6 +98,8 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 ```
 
 commit-push-pr 會處理：self-review → 驗證閘門 → staging → commit → push → 建立 PR。
+
+回報合併成一列：「擴充點：context 已讀／無；review 已套用／無；pre-merge …」（後兩項取自 `commit-push-pr` 的回報，一併轉述）。
 
 ## Important Notes
 

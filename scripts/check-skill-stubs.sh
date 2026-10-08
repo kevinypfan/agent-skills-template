@@ -14,7 +14,7 @@
 #  4. 擴充點（見 .agents/extensions/README.md；掃描範圍＝skill 真身 SKILL.md 與 .agents/roles/*.md，不含各 README）：
 #     (a) 引用的 .agents/extensions/<name>.md 名稱必須在 EXTENSION_POINTS 內；(b) 引用擴充點的檔必含「擴充點」與「不退到 `~/.agents`」；
 #     (c) extensions/README.md 每個名稱有「## <name>」且 examples/<name>.md 存在；(d) extensions/ 內清單外的 .md（非三個合法檔名、README.md、examples/）→ ✗；
-#     (e) 真身與角色不得出現 ~/.agents/extensions
+#     (e) 真身與角色不得出現 ~/.agents/extensions；(f) EXTENSION_POINTS 每個名稱至少被一份真身或角色引用
 # 手動：bash scripts/check-skill-stubs.sh
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -138,6 +138,11 @@ if [ -n "$ext_scan" ]; then
   if hits=$(grep -nF '~/.agents/extensions' $ext_scan); then
     echo "✗ 真身或角色出現 ~/.agents/extensions（擴充點只讀當前 repo 根、不退到 ~/.agents）："; echo "$hits" | sed 's/^/    /'; fail=1
   fi
+  # (f) 清單內每個名稱至少被一份真身或角色引用（沒人讀的擴充點等於沒接線）
+  for e in $EXTENSION_POINTS; do
+    # shellcheck disable=SC2086
+    grep -qF ".agents/extensions/${e}.md" $ext_scan || { echo "✗ 擴充點 ${e} 沒有任何真身或角色引用（.agents/extensions/${e}.md）"; fail=1; }
+  done
 fi
 if [ -d .agents/extensions ]; then
   # (c) README 每個名稱有 ## <name> 節，examples 存在

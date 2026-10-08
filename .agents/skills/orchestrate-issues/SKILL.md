@@ -184,6 +184,8 @@ You **MUST** consider the user input before proceeding. The user input may conta
      ```text
      由 orchestrate-issues 呼叫；<PR 編號>，第 <N> 輪；只處理：<id 清單>
      ```
+
+     id 清單範例：`summary:123#1, summary:123#3, thread:PRRT_xxx`（總結來源用 `summary:<comment id>#<序號>`）。
    - 5.1 的 `review-pr` 因「由 orchestrate-issues 呼叫」而去掉「發佈並處理」選項，所以不會與這裡重複觸發；`address-pr-review` 自己會呈現清單、等原線的使用者確認，確認畫面由 Step 4 的監看處理。
    - 處理完 push 後 head 已變：回 5.1 以下一輪重審，其間 `address-pr-review` 回報的 pre-merge 結果視為過期，5.3 重查。
 3. **CI**：

@@ -255,6 +255,7 @@ gh api "repos/{owner}/{repo}/pulls/<N>/reviews" --paginate \
 - `--jq` 對每頁各跑一次，多頁輸出直接串接即可，不用特別合併。
 - reviews 的 `body` 為空（只有 inline comment 的 review）要略過；`state` 為 `APPROVED` / `CHANGES_REQUESTED` / `COMMENTED`。
 - 要找自己留的，用 [tracker] 取自己帳號後比對 `user.login`。
+- 內文太長被截斷時，用 `gh api repos/{owner}/{repo}/issues/comments/<id>` 單獨重取。
 
 ## 在 diff 上留 inline comment（選用）
 

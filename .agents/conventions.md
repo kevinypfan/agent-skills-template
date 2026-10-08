@@ -44,6 +44,7 @@ skill 本文**不得**硬編這些值，改值一律改這裡（個人偏好改�
 | `issue_labels_optional` | （無） | | priority / component 等選填 label 表，格式自由（skill 只在使用者提到時套用） |
 | `pr_labels` | （無） | | `commit-push-pr` 建 PR 時加的 label |
 | `pr_assignee` | `@me` | | 建 PR 的 assignee |
+| `pr_template` | `auto` | | `commit-push-pr` 建 PR 的內文骨架：`auto` = repo 有自己的 PR/MR template 就用它（偵測路徑見 `_tracker/<tracker>.md`「repo 的 PR template」；只有非預設的 template 時會先問），沒有才用內建 `assets/pr-template.md`；`builtin` = 一律用內建；或填 repo 相對路徑指定一份 |
 | `commit_scopes` | （無） | | Conventional Commits 的合法 scope 清單（如 `api, parser, web`）；空 = 不限制 |
 | `commit_language` | 依 `git log` 主要語言 | （同預設） | commit message 的語言：看 `git log -30 --format=%s` 多數 subject 用哪種語言；repo 無歷史則英文。可強制寫 `英文` / `繁體中文` |
 | `commit_trailer` | `Co-Authored-By: <agent>` | | commit message 結尾 trailer。Claude Code 用 `Co-Authored-By: Claude <noreply@anthropic.com>`；Codex 用 `Co-Authored-By: Codex <noreply@openai.com>` |
@@ -96,6 +97,7 @@ max_parallel_lanes: 3
 | `worktree_root` / `branch_prefix` | 用「預設」欄；`git branch -r` 若明顯用別的前綴（如 `feature/`），跟著 repo |
 | `issue_labels_*` / `pr_labels` | **不推斷**。要用時問使用者；不要自創 label |
 | `pr_assignee` | `@me` |
+| `pr_template` | `auto` |
 | `commit_scopes` | 不限制，但 scope 盡量沿用 `git log -30 --format=%s` 已出現過的 |
 | `commit_language` | 照上表規則 |
 | `commit_trailer` | host 有給 commit attribution 指示（如 Claude Code 的 system reminder）就用 host 的；否則「預設」欄 |

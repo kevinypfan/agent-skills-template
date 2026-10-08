@@ -28,6 +28,7 @@ git remote get-url origin
 | 建 issue | `glab issue create --title --label --assignee --description` | `gh issue create --title --label --assignee --body` | GitLab `--description` ≡ GitHub `--body` |
 | 查目前分支的 PR | `glab mr view "$BRANCH" --output json` | `gh pr view "$BRANCH" --json number,title,baseRefName,url,state` | 兩邊都以分支名查；不存在時非零 exit |
 | 看 PR（含 comments） | `glab mr view <N> --comments` | `gh pr view <N> --comments` | |
+| 找 repo 的 PR template | （檔案偵測）`git ls-files` | （檔案偵測）`git ls-files` | 路徑與順序見各檔「repo 的 PR template」；`commit-push-pr` 在 `pr_template: auto` 時用 |
 | 建 PR | `glab mr create --title --target-branch --assignee --label --description --remove-source-branch` | `gh pr create --title --base --assignee --label --body` | GitHub 無 `--remove-source-branch`（repo 設定 auto-delete） |
 | 更新 PR 描述 | `glab mr update <N> --description` | `gh pr edit <N> --body` | |
 | 留 PR 總結 comment | `glab mr note <N> --message` | `gh pr comment <N> --body` | |

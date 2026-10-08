@@ -27,7 +27,7 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 ## Step 0: 讀設定
 
-1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `base_branch`、`pr_labels`、`pr_assignee`、`commit_scopes`、`commit_trailer`、`commit_language`、`verify_commands`、`language`。
+1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `base_branch`、`pr_labels`、`pr_assignee`、`pr_template`、`commit_scopes`、`commit_trailer`、`commit_language`、`verify_commands`、`language`。
 2. 依 `.agents/skills/_tracker/README.md` 判斷 tracker，讀對應 `.agents/skills/_tracker/<tracker>.md`。下文 **[tracker] 動作** 一律查該檔。
 
 ## Workflow
@@ -107,18 +107,30 @@ git push -u origin "$(git branch --show-current)"
   <bullet points>
   ```
 
-- **更新 PR 描述**（大幅變更，會覆寫原描述）→ **[tracker] 更新 PR 描述**，內容用 Option B 的 template 重填
+- **更新 PR 描述**（大幅變更，會覆寫原描述）→ **[tracker] 更新 PR 描述**，內容依 Option B 步驟 1–3（選骨架、填寫、關閉語法）重填
 
 #### Option B: 建新 PR
 
-1. 讀 `.agents/skills/commit-push-pr/assets/pr-template.md`
-2. 替換佔位符：
-   - `{{RELATED_ISSUES}}` → 相關 issue/PR 連結，若無寫「無」。**這個 PR 完整解決 issue 才寫關閉語法**（如 `Closes #N`）；只完成一部分、或 issue 拆成多個 PR 時寫 `Refs #N`，而且**整份內文與 commit message 都不能出現 tracker 的自動關閉關鍵字緊接 `#N`**（連「之後的 PR 會 close #N」這種敘述也會觸發，關鍵字清單見 `_tracker/<tracker>.md`「自動關閉關鍵字」）
-   - `{{SUMMARY}}` → 目的和主要變更
-   - `{{CHANGES}}` → 變更內容（bullet points）
-   - `{{TESTING}}` → 如何測試；有新增/修改測試案例則逐一條列
-   - `{{NOTES}}` → 其他說明，若無寫「無」
-3. 執行 **[tracker] 建 PR**：title `<type>(<scope>): <PR title>`、base = target branch、assignee = `pr_assignee`、labels = `pr_labels`、內文 = 填好的 template
+1. 選內文骨架（依 `pr_template`）：
+   - `auto`：**[tracker] 找 repo 的 PR template**，找到就用它；沒有 → 內建 `.agents/skills/commit-push-pr/assets/pr-template.md`
+   - `builtin`：內建那份
+   - 路徑：用該檔；檔案不存在就停下來告訴使用者
+2. 填寫：
+   - **內建 template**：替換佔位符
+     - `{{RELATED_ISSUES}}` → 相關 issue/PR 連結，若無寫「無」（關閉語法見步驟 3）
+     - `{{SUMMARY}}` → 目的和主要變更
+     - `{{CHANGES}}` → 變更內容（bullet points）
+     - `{{TESTING}}` → 如何測試；有新增/修改測試案例則逐一條列
+     - `{{NOTES}}` → 其他說明，若無寫「無」
+   - **repo 的 template**：
+     - 保留它的標題、順序與欄位，逐欄依 commit 與 diff 填寫；填不出來寫「無」或「不適用」，**不要刪欄位**
+     - 標題沿用 template 原文，填寫內容依 `language`
+     - checkbox 只勾實際做過、驗證過的項目，其餘保持未勾
+     - 寫給填寫者看的 HTML 註解（`<!-- 請說明… -->`）填完後刪掉；看起來是工具標記的註解（release / changelog bot 等的 marker）保留
+     - 概要、變更內容、關聯 issue、測試這四項：template 有同義標題或專用欄位（不論語言，如 `How to test` ≡ 測試）就算涵蓋，內容填進該欄；都沒有才在最後補一段。沒把握時填進最接近的欄位，不另外加段
+     - 驗證閘門結果：有對應 checkbox 就照實勾，沒有就在測試欄註記
+3. **關閉語法（不論哪份骨架，送出前檢查整份內文）**：這個 PR 完整解決 issue 才寫關閉語法（如 `Closes #N`）；只完成一部分、或 issue 拆成多個 PR 時寫 `Refs #N`，而且**整份內文與 commit message 都不能出現 tracker 的自動關閉關鍵字緊接 `#N`**（連「之後的 PR 會 close #N」這種敘述也會觸發，關鍵字清單見 `_tracker/<tracker>.md`「自動關閉關鍵字」）。repo template 預填的 `Closes #` / `Fixes #` 也照此改寫
+4. 執行 **[tracker] 建 PR**：title `<type>(<scope>): <PR title>`、base = target branch、assignee = `pr_assignee`、labels = `pr_labels`、內文 = 填好的 template
 
 ### Step 5: Inline Comments on Diff (Optional)
 
@@ -129,7 +141,7 @@ PR 建好後**詢問使用者**是否要在 diff 上留 inline comment 解釋非
 ### Step 6: Report Result
 
 1. PR URL
-2. PR 內容摘要
+2. PR 內容摘要，含用了哪份內文骨架（內建／repo 的哪個檔）
 3. 若有留 inline comment，列出留了哪些
 4. 讀擴充點 `.agents/extensions/pre-merge.md`：只看當前 repo 根（`git rev-parse --show-toplevel`），不退到 `~/.agents`；有就照做、沒有就跳過，兩種情況都寫進回報的「擴充點」列。此處只讀出 `###` 標題，不執行任何「怎麼查」指令；本 skill 不等 CI，註明「merge 前由調度者（`orchestrate-issues` 5.3）或人工執行」。
 5. 固定一列：「擴充點：review 已套用／無；pre-merge：<名稱> 未檢查（未執行，merge 前由 orchestrate-issues 5.3 或人工執行）」，每個項目一筆；沒有 pre-merge 寫「pre-merge：無」

@@ -55,12 +55,14 @@ skill 本文**不得**硬編這些值，改值一律改這裡（個人偏好改�
 | `multiplexer` | `auto` | | `orchestrate-issues` 開 agent session 用的 terminal multiplexer：`auto` / `herdr` / `none`。偵測與動作對照見 `.agents/skills/_multiplexer/README.md` |
 | `agent_kind` | 目前所在的 agent | | 調度時開新 session 啟動的 agent（`claude` / `codex`…） |
 | `agent_start_args` | （無） | | 啟動 agent 的額外參數。yolo mode 在這裡開（Claude `--dangerously-skip-permissions`；Codex `--dangerously-bypass-approvals-and-sandbox`），預設關閉 |
-| `auto_merge` | `false` | | `orchestrate-issues`：`true` = review 無 blocker、CI 全綠、可合併、pre-merge 擴充點全通過（沒有則略）四項皆成立時自動 merge；`false` = 每個 PR merge 前問使用者 |
+| `auto_merge` | `false` | | `orchestrate-issues`：`true` = review 狀態 complete 且審查的 sha 等於要 merge 的 head 且無 blocker、CI 全綠、可合併、pre-merge 擴充點全通過（沒有則略）四項皆成立時自動 merge；`false` = 每個 PR merge 前問使用者 |
 | `merge_method` | `merge` | | `merge` / `squash` / `rebase` |
 | `merge_subject` | 依 `git log --merges` 慣例 | | merge commit subject 格式（如 `Merge pull request #<N> from <branch>`、`<PR title> (#<N>)`） |
 | `delete_branch_after_merge` | `true` | | 收尾時是否刪除已 merge 的本地與遠端分支 |
 | `max_parallel_lanes` | `4` | | 同時進行的 agent 線數上限 |
-| `review_policy` | 改對外契約或 ≥3 檔派 reviewer | | PR 關卡何時派 `reviewer` agent（沿用 `global/AGENT-ROLES.md` 的門檻） |
+| `review_policy` | 改對外契約或 ≥3 檔派 reviewer | | 只管「何時呼叫 `review-pr`」（`orchestrate-issues` 5.1 讀它；門檻沿用 `global/AGENT-ROLES.md`） |
+| `review_fanout` | 超過 10 檔或 diff 超過 1500 行 | | 只管 `review-pr` 內部「何時分組 fan-out 給 `reviewer` agent」；未達門檻由主對話逐檔審 |
+| `adversarial_external` | `true` | | `review-pr` 的 adversarial pass 是否送給外部 agent（`ask-agents`）；`false` = 不外送，直接派本家 `reviewer` agent，並在總結註明 |
 
 ## 範例（填好的樣子）
 
@@ -103,7 +105,7 @@ max_parallel_lanes: 3
 | `commit_trailer` | host 有給 commit attribution 指示（如 Claude Code 的 system reminder）就用 host 的；否則「預設」欄 |
 | `test_command` / `lint_command` / `verify_commands` | 依序找第一個有寫的來源：repo 規範檔（`CLAUDE.md` / `AGENTS.md` / `CONTRIBUTING.md`）→ `Makefile` 的 test / check / lint target → `package.json` scripts → `Cargo.toml`（`cargo test` / `cargo clippy`）→ `pyproject.toml`（pytest / ruff）→ `.github/workflows` / `.gitlab-ci.yml` 實際跑的指令。多語言 repo 依改動路徑分列 |
 | `language` | repo 規範檔的語言政策；沒寫就用「預設」欄 |
-| `multiplexer` / `auto_merge` / `merge_method` / `delete_branch_after_merge` / `max_parallel_lanes` / `review_policy` | 用「預設」欄；`orchestrate-issues` 首次使用時會引導設定並存進個人檔或專案檔 |
+| `multiplexer` / `auto_merge` / `merge_method` / `delete_branch_after_merge` / `max_parallel_lanes` / `review_policy` / `review_fanout` / `adversarial_external` | 用「預設」欄；`orchestrate-issues` 首次使用時會引導設定並存進個人檔或專案檔 |
 | `agent_kind` | 目前執行 skill 的 agent（Claude Code → `claude`、Codex → `codex`） |
 | `agent_start_args` | **不推斷**，預設空（不開 yolo）；只接受使用者明確選擇 |
 | `merge_subject` | `git log --merges -10 --format=%s` 的主要格式；沒有 merge commit 就用 tracker 預設 |

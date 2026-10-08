@@ -51,7 +51,7 @@ git status --short
 - **Efficiency** — 不必要的計算、缺少並行、hot-path 問題
 - **專案 review 清單** — 讀擴充點 `.agents/extensions/review.md`：只看當前 repo 根（`git rev-parse --show-toplevel`），不退到 `~/.agents`；有就照做、沒有就跳過，兩種情況都寫進回報的「擴充點」列。逐項檢查清單，並避開檔內列的「常見過嚴意見」。檢查項只做判讀、不改檔；要修的照本 skill 既有的自審確認流程。
 
-**只做 review，不做 auto-fix。** 審查完成後：
+**只做 review，不做 auto-fix。** 本步驟是 push 前的自審；skill `review-pr` 審的是已建立的 PR，不適用於這一步。審查完成後：
 1. **列出問題清單**，讓使用者決定要修哪些
 2. 根據使用者確認的項目修正，跳過不想改的
 3. **Review untracked files**：哪些該 commit、哪些該 ignore
@@ -142,7 +142,7 @@ git push -u origin "$(git branch --show-current)"
 
 ### Step 6: Report Result
 
-1. PR URL
+1. PR URL；可接著呼叫 skill `review-pr` 審這個 PR
 2. PR 內容摘要，含用了哪份內文骨架（內建／repo 的哪個檔）
 3. 若有留 inline comment，列出留了哪些；有失敗而改併進總結 comment 的，另列哪幾條、原因
 4. 讀擴充點 `.agents/extensions/pre-merge.md`：只看當前 repo 根（`git rev-parse --show-toplevel`），不退到 `~/.agents`；有就照做、沒有就跳過，兩種情況都寫進回報的「擴充點」列。此處只讀出 `###` 標題，不執行任何「怎麼查」指令；本 skill 不等 CI，註明「merge 前由調度者（`orchestrate-issues` 5.3）或人工執行」。

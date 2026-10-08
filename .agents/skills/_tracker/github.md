@@ -23,8 +23,7 @@ gh pr list --state open --limit 100 \
 - PR 對應 issue：`closingIssuesReferences[].number`（PR 內文有 `Closes #N`）；沒有時再從 `headRefName` 的 `<prefix><N>-<slug>` 取編號。
 - CI 概況：`statusCheckRollup[]` 的 `conclusion`（`SUCCESS` / `FAILURE`…）與 `status`（`IN_PROGRESS`…）；空陣列 = 沒跑 CI（常見原因是衝突）。
 - issue 超過 100 個時加 `--label` / `--search` 縮小，或問使用者範圍。
-
-
+## 建 issue
 
 ```bash
 gh issue create \
@@ -89,6 +88,7 @@ PR 內文（以及 merge 進預設分支的 commit message）只要出現 **`clo
 ```bash
 gh pr edit <N> --body "<內文>"
 gh pr comment <N> --body "<內文>"
+gh pr comment <N> --body-file <file>   # 長內文先寫暫存檔
 ```
 
 ## 取自己帳號
@@ -142,6 +142,7 @@ gh pr merge <N> --squash --subject "<subject>" --body "<body>"         # squash
 gh pr merge <N> --rebase                                                # rebase（無 subject）
 ```
 
+- 要綁定已審查的 sha 時加 `--match-head-commit <sha>`（完整 40 碼）：PR head 不等於該 sha 就拒絕 merge。
 - 不加 `--delete-branch`：刪分支由收尾步驟依 `delete_branch_after_merge` 處理（疊分支時下一個 PR 還指著它當 base）。
 - merge 後 `gh issue view <issue> --json state` 確認 issue 已因 `Closes #<issue>` 自動關閉。
 
@@ -164,6 +165,14 @@ gh run view <run-id> --job <job-id> --log-failed
 
 `gh workflow run` 不回傳 run id：觸發後隔幾秒用 `gh run list` 取最新一筆。
 
+## 看 PR（JSON）
+
+```bash
+gh pr view <N> --json number,title,body,author,baseRefName,headRefName,state,headRefOid,baseRefOid,url
+```
+
+JSON 欄位：`number`、`title`、`body`（描述）、`author.login`、`baseRefName`、`headRefName`、`state`（`OPEN` / `MERGED` / `CLOSED`）、`headRefOid`（head sha）、`baseRefOid`（base 目前的 sha）、`url`。
+
 ## 看 PR diff 版本（sha）
 
 ```bash
@@ -173,6 +182,11 @@ gh pr view <N> --json headRefOid,baseRefOid
 - `headRefOid` = PR 最新 head commit；inline comment 的 `commit_id` 用它。
 - `baseRefOid` = base 分支目前的 commit；審查範圍用 `git diff <baseRefOid>...<headRefOid>`。
 - 只需要 head sha 一個（GitLab 要三個）。每次 push 後 `headRefOid` 會變，留 inline 前重取。
+- **fetch PR head**：`<baseRefOid>` 或 `<headRefOid>` 任一在本地不存在（`git cat-file -e <sha>^{commit}` 失敗）就 fetch。head 用 PR ref，fork 的 PR 也適用，不依賴分支名：
+
+```bash
+git fetch origin "pull/<N>/head"   # 取回後 FETCH_HEAD 即 head；base 則 git fetch origin <base 分支名>
+```
 
 ## 列出 PR thread（含 resolved）
 

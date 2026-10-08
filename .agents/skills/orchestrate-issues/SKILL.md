@@ -108,8 +108,8 @@ You **MUST** consider the user input before proceeding. The user input may conta
 | 實作中 | agent `working`，或 worktree 有未 commit 變更、尚無 PR |
 | 等方案確認 | agent 停下，畫面停在 `fix-issue` 的修改方案等 proceed |
 | 等 self-review | agent 停下，畫面停在 `commit-push-pr` 的審查清單 |
-| PR 等 review 或 CI | PR 已建立，未 review 或 CI 未結束／失敗 |
-| 可 merge | review 無 blocker、CI 全綠、可合併、pre-merge 全通過（有擴充點時） |
+| PR 等 review 或 CI | PR 已建立，未 review、review 狀態非 complete（incomplete／needs-decision）、審到的 sha 不是目前 head，或 CI 未結束／失敗 |
+| 可 merge | review 狀態 complete 且審到的 sha = 要 merge 的 head 且無 blocker、CI 全綠、可合併、pre-merge 全通過（有擴充點時） |
 | PR 等 pre-merge | CI 全綠，但 pre-merge 有項目未通過或未檢查 → 留在 Step 5.3，不進 merge |
 | 待收尾 | PR 已 merge，但 worktree／session／分支還在 |
 | 無法判斷 | 有 worktree 但沒有 agent、也沒有 PR，或畫面看不出來 → 標出來問使用者 |
@@ -171,7 +171,13 @@ You **MUST** consider the user input before proceeding. The user input may conta
 
 ## Step 5: PR 關卡
 
-1. **review**：依 `review_policy` 決定是否派給 `reviewer` agent。prompt 附：spec 來源（issue 與決定留言）、已知限制、要特別驗證的 race／邊界條件；只看該 PR 自己的 delta（疊分支時是 `git diff <前一分支>...<本分支>`）。
+1. **review**：依 `review_policy` 決定是否呼叫 skill `review-pr`（它依 `review_fanout` 自行決定逐檔審或派 `reviewer` agent 分組，不由 `review_policy` 決定）。參數帶：「由 orchestrate-issues 呼叫」（review-pr 因此選項去掉「發佈並處理」，仍會等使用者確認，不串接 `address-pr-review`，處理由下面 5.2 負責）、PR 編號、spec 來源（issue 與決定留言）、要特別驗證的條件（race／邊界／相容性）、疊分支時的 base（只審該 PR 自己的 delta）：
+
+   ```text
+   由 orchestrate-issues 呼叫；<PR 編號>，spec 在 issue #<N> 的決定留言；特別驗證 <條件>；base 是 <前一分支>
+   ```
+
+   `review-pr` 發佈前會請使用者確認；其結論（findings 與嚴重度）供下一步分級，並回報**完成狀態**（`complete` / `incomplete` / `needs-decision`）與**實際審到的 head sha**，供 5.4 判斷。狀態非 `complete`（必要的 adversarial pass 沒執行、有未裁決的 `needs-architect`、還在等使用者確認）→ 先補齊或問使用者，不視為 review 已過。
 2. **review 結果分級**：blocker／major → 送回原線 agent 在同一 PR 修；minor → 視成本決定修或略；範圍外 → 開新 issue。
 3. **CI**：
    - [tracker] 看 PR CI 狀態（含等待）。0 個 check／CI 沒跑 → 先 [tracker] 看 PR 可否合併，有衝突要先解（交回原線 agent）。
@@ -188,10 +194,10 @@ You **MUST** consider the user input before proceeding. The user input may conta
      - 每項記為 通過／未通過／未檢查：查不到結果（指令失敗、API 無回應、資料不存在）一律算**未檢查**，未檢查與未通過都擋 merge，除非該項「查不到時」欄明確改寫或使用者明說可略過。
      - pre-merge 結果綁定當下 head SHA；head 變動後，5.4 前要重查。
 4. **merge**：
-   - `auto_merge` 為 `false` → 列出 PR、review 結論、CI 結果、pre-merge 各項結果，問使用者是否 merge。
-   - `auto_merge` 為 `true` → review 無 blocker、CI 全綠、[tracker] 看 PR 可否合併為可合併狀態、pre-merge 全部通過（無 pre-merge 擴充點視為通過），四者皆成立才 merge。
+   - `auto_merge` 為 `false` → 列出 PR、review 結論（含完成狀態與審到的 sha）、CI 結果、pre-merge 各項結果，問使用者是否 merge。
+   - `auto_merge` 為 `true` → review（狀態 `complete`、審到的 sha 等於要 merge 的 head、且無 blocker）、CI 全綠、[tracker] 看 PR 可否合併為可合併狀態、pre-merge 全部通過（無 pre-merge 擴充點視為通過），四者皆成立才 merge。review 之後 head 又變動（修正 push）→ 該 PR 需重跑 `review-pr`（第 2 輪起）才算 review 已過。
    - merge 前 [tracker] 看 PR 會關閉哪些 issue：必須正好是這個 PR 完整解決的 issue。多出只完成一部分的 issue（常見於內文寫了「之後會 close #N」）→ 先改 PR 內文再 merge；少了該關的 → 補上關閉語法或 merge 後手動處理。
-   - [tracker] merge PR：方法 = `merge_method`，subject 依 `merge_subject`。merge 後確認關聯 issue 已自動關閉，沒關就回報使用者；**被誤關的 issue 用 [tracker] 重新打開 issue**，留言寫明剩餘工作。
+   - [tracker] merge PR：方法 = `merge_method`，subject 依 `merge_subject`。**一律帶入 `review-pr` 回報的審到的 sha**（GitHub `--match-head-commit`、GitLab `--sha`，見 tracker 檔），檢查到 merge 之間 head 又變動則 merge 失敗，此時回到 5.1 重審，不改成不帶 sha 重試。merge 後確認關聯 issue 已自動關閉，沒關就回報使用者；**被誤關的 issue 用 [tracker] 重新打開 issue**，留言寫明剩餘工作。
 5. **疊分支**：前一個 PR merge 後，下一個 PR [tracker] 改 PR base 為 `base_branch`，再 [tracker] 更新 PR 分支（base 併進來）讓 CI 以新 base 重跑；並通知該線 agent base 已改。
 6. 同一批 merge 了多個動到同檔案的 PR 後，在 `base_branch` 上跑一次測試（派給 `runner` agent，指令取 conventions 的 `test_command`）或確認 `base_branch` 的 CI 綠燈。
 
@@ -232,7 +238,7 @@ git branch -d <branch>
 
 - **主 session 不自己實作 issue**，也不替各線 agent 做 commit／PR——各線一律透過 skill `fix-issue` → `commit-push-pr`。
 - **API／行為／命名／破壞性變更的決定只能來自使用者**，並寫進 issue 留言；主 session 只放行實作層級的細節。
-- **merge 預設要問使用者**；只有 `auto_merge: true` 且四項條件都成立才自動 merge。
+- **merge 預設要問使用者**；只有 `auto_merge: true` 且四項條件（review complete 且 sha 吻合、CI、可合併、pre-merge）都成立才自動 merge。
 - **不關閉本次調度以外的 session**，不刪本次以外的分支。
 - 個人偏好只寫個人檔或專案檔，**不寫 template 的全域 conventions**。
 - 對話語言依 `language`。

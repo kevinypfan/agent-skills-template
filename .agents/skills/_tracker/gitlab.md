@@ -184,6 +184,7 @@ print('start_sha:', v['start_commit_sha'])
 
 - ⚠ **不要用 `git merge-base`、本地 branch HEAD 推算**：GitLab 比對的是 MR 自己記錄的 diff version，sha 對不上時 API 回 400，或 comment 不會出現在 Changes tab。
 - 每次 push 都會產生新 version；留 inline 前重取，不要沿用舊的。
+- ⚠ push 後 GitLab 是**非同步**產生新 version：剛 push 完取到的 `head_sha` 可能還是舊的。先確認 `diff_refs.head_sha` 等於剛 push 的 commit（`git rev-parse HEAD`），不相等就隔幾秒重取，最多重試數次；仍不相等就停下回報。
 
 ## 列出 PR thread（含 resolved）
 
@@ -238,21 +239,15 @@ glab api "projects/:id/merge_requests/<N>/notes?per_page=100&sort=asc" --paginat
 
 預設不留，只有使用者要求才用。先 [tracker] 看 PR diff 版本取三個 sha。
 
+`<tmpdir>` = 暫存目錄（Claude Code 用 scratchpad，Codex 用 `mktemp -d`），不要寫進 repo。
+
 ```bash
-cat > <tmpdir>/inline.json <<'EOF'
-{
-  "body": "comment 內容",
-  "position": {
-    "position_type": "text",
-    "base_sha": "<base_sha>",
-    "head_sha": "<head_sha>",
-    "start_sha": "<start_sha>",
-    "new_path": "<path>",
-    "old_path": "<path>",
-    "new_line": 42
-  }
-}
-EOF
+jq -n \
+  --arg body "comment 內容（可多行、含引號）" \
+  --arg base "<base_sha>" --arg head "<head_sha>" --arg start "<start_sha>" \
+  --arg path "<path>" --argjson line 42 \
+  '{body: $body, position: {position_type: "text", base_sha: $base, head_sha: $head, start_sha: $start,
+    new_path: $path, old_path: $path, new_line: $line}}' > <tmpdir>/inline.json
 
 glab api "projects/:id/merge_requests/<N>/discussions" \
   --method POST \
@@ -265,32 +260,34 @@ glab api "projects/:id/merge_requests/<N>/discussions" \
 硬性規則：
 
 - ⚠ **JSON 一律用 `--input`，嚴禁 `-f` / `--field` 傳 `position`**：`-f` 走 form data，nested object（`position.base_sha` 等）解析不了，comment 不會釘上 Changes tab。
-- ⚠ **嚴禁用 `printf` 產生 JSON**：中文字元會壞格式。一律 `cat <<'EOF'` heredoc 寫檔。
+- ⚠ **JSON 用 `jq -n --arg` 產生**：自動處理換行、引號與中文。嚴禁用 `printf` 拼 JSON（中文字元會壞格式）；手寫 heredoc 時 body 裡的換行要寫成 `\n`、雙引號寫成 `\"`，容易出錯。
 - 行號：
-  - `new_line` = 該行在**新檔案**的行號，且該行必須**出現在本次 diff 中**（新增行或 context 行）。
-  - 標**被刪除的行**：改用 `old_line`（舊檔行號），省略 `new_line`。
+  - 該行必須**出現在本次 diff 中**（新增、刪除或 diff 的 context 行）。
+  - **新增行**：只填 `new_line`（新檔行號）。
+  - **刪除行**：只填 `old_line`（舊檔行號），省略 `new_line`。
+  - **context 行**（未變更、出現在 diff 上下文）：`old_line` 與 `new_line` **都要填**，只填 `new_line` 會回 400（`line_code can't be blank`）。
   - 未變更且不在 diff context 內的行**釘不上**，API 會回錯（多半 HTTP 400）；這類內容改走總結 comment。
 - 檔案 rename：`old_path` 填舊路徑、`new_path` 填新路徑；不確定時先看 `git diff --stat -M` 的 rename 標記。未 rename 兩者填同一個。
 
 ## 回覆 thread
 
 ```bash
-cat > <tmpdir>/reply.json <<'EOF'
-{"body": "回覆內容"}
-EOF
+jq -n --arg body "回覆內容" '{body: $body}' > <tmpdir>/reply.json
 glab api "projects/:id/merge_requests/<N>/discussions/<thread id>/notes" \
   --method POST --header "Content-Type: application/json" --input <tmpdir>/reply.json
 ```
 
 - `<thread id>` = discussion 的 `id`（不是 note id）。
-- 這裡只有 flat field，技術上可用 `-f body=...`；含中文或多行時仍用 `--input` + heredoc。
+- 這裡只有 flat field，技術上可用 `-f body=...`；含中文或多行時仍用 `--input`。
 
 ## resolve / unresolve thread
 
 ```bash
-glab api "projects/:id/merge_requests/<N>/discussions/<thread id>" --method PUT -f resolved=true
-glab api "projects/:id/merge_requests/<N>/discussions/<thread id>" --method PUT -f resolved=false
+glab api "projects/:id/merge_requests/<N>/discussions/<thread id>" --method PUT -f resolved=true | jq '.notes[0].resolved'
+glab api "projects/:id/merge_requests/<N>/discussions/<thread id>" --method PUT -f resolved=false | jq '.notes[0].resolved'
 ```
+
+- 回傳的 `.notes[0].resolved` 應為 `true`（resolve）或 `false`（unresolve），用來確認；不符就回報。
 
 - `resolved` 是 flat field，可用 `-f`。
 - 只對 `resolvable` 的 thread 有效。

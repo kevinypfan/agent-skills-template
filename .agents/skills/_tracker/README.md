@@ -46,7 +46,7 @@ git remote get-url origin
 | 看失敗 job log | `glab ci trace <job-id>` | `gh run view <run> --job <job> --log-failed` | |
 | 看 PR diff 版本（sha） | `glab mr view <N> --output json`（`diff_refs.{base_sha,head_sha,start_sha}`）；不用 `git merge-base` 推算 | `gh pr view <N> --json headRefOid,baseRefOid` | 留 inline 前先取；GitLab 要三個 sha，GitHub 只用 head |
 | 列出 PR thread（含 resolved） | `glab api ".../merge_requests/<N>/discussions?per_page=100" --paginate`（多頁是串接陣列，要逐段解析） | GraphQL `reviewThreads`（可分頁） | 回傳 thread id、note id、resolved 狀態；解析細節見各檔 |
-| 列出未解決 thread | 過濾 `notes[0].resolvable && !resolved` | 過濾 `isResolved == false` | 同上 |
+| 列出未解決 thread | 過濾 `notes[0].resolvable && !notes[0].resolved` | 過濾 `isResolved == false` | 同上 |
 | 列出總結 comment | `glab api .../notes`，`system=false` 且無 `position` | `issues/<N>/comments` + `pulls/<N>/reviews` 的 body | 不含 inline thread |
 | 在 diff 上留 inline comment（選用） | `POST discussions` 帶 `position`；JSON 用 `--input`，不可 `-f` 傳 nested | `POST pulls/<N>/comments`（`commit_id`、`path`、`line`、`side`） | 預設不留；行須在 diff 內，否則失敗，改走總結 comment |
 | 回覆 thread | `POST discussions/<thread id>/notes` | `POST pulls/<N>/comments/<note id>/replies` | GitHub 的 `<note id>` 是 thread 首則 comment 的 `databaseId` |

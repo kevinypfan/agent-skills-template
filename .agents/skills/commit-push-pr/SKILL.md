@@ -136,7 +136,7 @@ git push -u origin "$(git branch --show-current)"
 
 **預設不留。** 只有使用者要求在 diff 上留 inline comment（解釋非顯而易見的設計決策：為何選 A 不選 B、trade-off、workaround、隱含相依）時才做：
 
-1. **[tracker] 看 PR diff 版本**，取得定位用的 sha
+1. **[tracker] 看 PR diff 版本**，取得定位用的 sha（剛 push 完要確認 head sha 已更新，見 tracker 檔）。取不到 → 整批改併進 **[tracker] 留 PR 總結 comment**，並在 Step 6 註明原因
 2. 逐條 **[tracker] 在 diff 上留 inline comment**。只留必要的，不重複 PR 描述已說的
 3. **單條失敗不中斷**（多半是該行不在 diff 內）：繼續留剩下的；全部試完後，把失敗的項目（每條標明原定 `檔案:行號`）併進一則 **[tracker] 留 PR 總結 comment**，並在 Step 6 列出
 

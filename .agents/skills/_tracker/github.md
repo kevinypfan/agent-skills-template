@@ -107,6 +107,7 @@ gh pr checks <N> --json name,state,link,workflow
 ```
 
 - 顯示 `no checks reported` / 0 個 check：PR 與 base **有衝突時 GitHub 不跑 `pull_request` CI**，先看「可否合併」、解衝突再等 CI。
+- `gh pr checks` 的整體結果不代表每個檢查都有意義：設了 `continue-on-error: true` 的 job / step 失敗時，workflow（或該 job）仍可能顯示成功，要看 log 或 step 結果；`paths` 篩選沒命中的 workflow 根本不會出現在 checks 裡。逐個看 `--json name,state,workflow`，對照該跑的檢查。
 - checks 是在 base 變動前跑的（別的 PR 剛 merge、尤其動到同檔案）→ 先「更新 PR 分支」讓 CI 以新 base 重跑。
 
 ## 看 PR 可否合併

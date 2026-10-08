@@ -176,6 +176,11 @@ You **MUST** consider the user input before proceeding. The user input may conta
    - [tracker] 看 PR CI 狀態（含等待）。0 個 check／CI 沒跑 → 先 [tracker] 看 PR 可否合併，有衝突要先解（交回原線 agent）。
    - CI 在其他 PR merge 前跑過、而 base 已變動（尤其動到同檔案）→ [tracker] 更新 PR 分支（base 併進來），讓 CI 以新 base 重跑。
    - 只能手動觸發的 workflow／pipeline（例如完整矩陣）→ merge 前 [tracker] 手動觸發 workflow / pipeline 並追蹤到結束。
+   - **「CI 全綠」以個別 job 為準，不看 pipeline / PR 整體狀態**。整體綠燈仍可能是：
+     - 允許失敗的 job 失敗了（GitLab `allow_failure: true`、GitHub `continue-on-error`）→ 逐個看它的實際結果；失敗就算沒過，除非使用者明說可忽略
+     - 預期該跑的 job 沒出現（`rules:changes` / `paths` 篩選沒命中、child pipeline 沒觸發）→ 對照這個 PR 改到的路徑，該跑的測試沒跑就算未檢查
+     - 只能手動觸發、合併前必須跑的 job 還沒跑 → 照上一點手動觸發
+     - 結果不在 job 狀態裡的檢查（外部品質系統、bot 留的 review thread）→ 列為未檢查並回報，不能當通過
    - 失敗 → [tracker] 看失敗 job log，判斷是實作問題、還是測試對時序的錯誤假設（實際遇過 flaky 順序斷言，加壓重跑後又抓到真 bug）；結論與修正交回原線 agent。
 4. **merge**：
    - `auto_merge` 為 `false` → 列出 PR、review 結論、CI 結果，問使用者是否 merge。

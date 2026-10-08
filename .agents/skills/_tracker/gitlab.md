@@ -34,6 +34,7 @@ glab issue create \
 ```
 
 - label 逗號分隔、一個 `--label`；scoped label（`type::bug`）直接寫完整字串
+- ⚠ **label 不存在時 GitLab 會靜默新建**（不報錯）。label 名稱含前綴字元（如 `# type::bug`、`$ priority::1`）時前綴也是名稱的一部分，漏寫就會多出一個新 label。建立前用 `glab label list --per-page 100` 核對字串完全一致
 - `--assignee "@me"` 可用
 - 回傳 issue URL（stdout 最後一行）
 
@@ -66,6 +67,7 @@ MR 描述（以及 merge 進預設分支的 commit message）出現 **`Close` / 
 
 - 只完成 issue 一部分的 MR **整份描述與 commit message 都不能出現上述組合**，連「之後的 MR 會 close #46」這種敘述也會觸發。改寫成 `Related to #N`、「完成後由下一個 MR 關閉 issue #N」這類說法。
 - merge 前核對：`glab api projects/:id/merge_requests/<N>/closes_issues | jq '[.[].iid]'`（`glab api` 沒有 `--jq`，接 `jq`）；多出不該關的 issue 就先 `glab mr update <N> --description` 改掉。
+- 標題、描述、留言、commit message 裡的 `#N` 會自動連結並**通知該 issue 的參與者**；只是舉例或引用別專案編號時改寫成 `issue 46`、`` `#46` `` 之類不會被解析的寫法。
 - 已經誤關：`glab issue reopen <N>`，再 `glab issue note <N> --message "<原因與剩餘工作>"`。
 
 ## 更新 PR 描述 / 留總結 comment
@@ -103,8 +105,12 @@ glab issue note <N> --message "<內文>"
 glab ci status --branch <source-branch>          # 一次性
 glab ci status --branch <source-branch> --wait   # 等 pipeline 結束
 glab mr view <N> --output json                   # head_pipeline.status / head_pipeline.id
+glab api projects/:id/pipelines/<pipeline-id>/jobs --paginate | jq '.[] | {name, stage, status, allow_failure}'
 ```
 
+- 以 `head_pipeline` 為準：job 設 `only: merge_requests` / `rules` 只在 MR pipeline 跑時，`--branch` 抓到的 branch pipeline 可能沒有這些 job。
+- pipeline `success` 不代表每個 job 都過：`allow_failure: true` 的 job 失敗時 pipeline 仍是 `success`（job `status` = `failed`）；manual job 預設也是 `allow_failure: true`。逐個看 jobs。
+- `rules:changes` 沒命中的 job 不會出現在 jobs 裡，「沒有失敗」不等於「有跑」。
 - MR 有衝突時 merged-results pipeline 不會跑，先看「可否合併」。
 - pipeline 是在 target 變動前跑的 → 先「更新 PR 分支」讓 pipeline 重跑。
 

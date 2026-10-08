@@ -171,7 +171,13 @@ You **MUST** consider the user input before proceeding. The user input may conta
 
 ## Step 5: PR 關卡
 
-1. **review**：依 `review_policy` 決定是否派給 `reviewer` agent。prompt 附：spec 來源（issue 與決定留言）、已知限制、要特別驗證的 race／邊界條件；只看該 PR 自己的 delta（疊分支時是 `git diff <前一分支>...<本分支>`）。
+1. **review**：依 `review_policy` 決定是否呼叫 skill `review-pr`（它會自行逐檔審或派 `reviewer` agent 分組）。參數帶：PR 編號、spec 來源（issue 與決定留言）、要特別驗證的條件（race／邊界／相容性）、疊分支時的 base（只審該 PR 自己的 delta）：
+
+   ```text
+   <PR 編號>，spec 在 issue #<N> 的決定留言；特別驗證 <條件>；base 是 <前一分支>
+   ```
+
+   `review-pr` 發佈前會請使用者確認；其結論（findings 與嚴重度）供下一步分級。
 2. **review 結果分級**：blocker／major → 送回原線 agent 在同一 PR 修；minor → 視成本決定修或略；範圍外 → 開新 issue。
 3. **CI**：
    - [tracker] 看 PR CI 狀態（含等待）。0 個 check／CI 沒跑 → 先 [tracker] 看 PR 可否合併，有衝突要先解（交回原線 agent）。

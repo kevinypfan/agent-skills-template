@@ -60,7 +60,7 @@ skill 本文**不得**硬編這些值，改值一律改這裡（個人偏好改�
 | `merge_subject` | 依 `git log --merges` 慣例 | | merge commit subject 格式（如 `Merge pull request #<N> from <branch>`、`<PR title> (#<N>)`） |
 | `delete_branch_after_merge` | `true` | | 收尾時是否刪除已 merge 的本地與遠端分支 |
 | `max_parallel_lanes` | `4` | | 同時進行的 agent 線數上限 |
-| `review_policy` | 改對外契約或 ≥3 檔派 reviewer | | PR 關卡何時派 `reviewer` agent（沿用 `global/AGENT-ROLES.md` 的門檻） |
+| `review_policy` | 改對外契約或 ≥3 檔派 reviewer | | 何時呼叫 `review-pr`（審查規模大時它再派 `reviewer` agent；門檻沿用 `global/AGENT-ROLES.md`） |
 
 ## 範例（填好的樣子）
 

@@ -23,13 +23,13 @@
 
 ## context
 
-- 時機：`fix-issue` 分析前；architect / reviewer / worker 開工前。`fix-issue` 收尾（Step 4 前）會提示「有新領域知識就建議更新它指向的文件」。
+- 時機：`fix-issue` 分析前；`review-pr` Step 2；architect / reviewer / worker 開工前。`fix-issue` 收尾（Step 4 前）會提示「有新領域知識就建議更新它指向的文件」。
 - 格式：自由文字——哪類改動先讀哪份文件，加上索引路徑。
 - 範例：[`examples/context.md`](examples/context.md)（含建議的文件結構：精簡 `CLAUDE.md` 當索引、`reference/` 按需讀、`CONTEXT-MAP.md` + 各 context 的 `CONTEXT.md`、`legacy.md`）
 
 ## review
 
-- 時機：`commit-push-pr` Step 2 自審（作為第四個角度）；reviewer 的 Standards 軸。
+- 時機：`commit-push-pr` Step 2 自審（作為第四個角度）；`review-pr` Step 3；reviewer 的 Standards 軸。
 - 格式：條列檢查項；可附「常見過嚴意見」（reviewer 不該提的，避免來回）。
 - 範例：[`examples/review.md`](examples/review.md)
 

@@ -11,7 +11,7 @@ Claude Code 與 Codex **共用**的骨架：一組 issue-flow skill（GitLab / G
 │   ├── README.md           ← 寫作規則
 │   ├── _tracker/           ← glab / gh 指令對照（非 skill）
 │   ├── _multiplexer/       ← herdr 等 terminal multiplexer 指令對照（非 skill）
-│   └── create-issue/  create-worktree/  fix-issue/  commit-push-pr/  orchestrate-issues/  ask-agents/
+│   └── create-issue/  create-worktree/  fix-issue/  commit-push-pr/  review-pr/  orchestrate-issues/  ask-agents/
 ├── extensions/             ← 擴充點說明與範例（專案在自己 repo 放 context / review / pre-merge.md）
 │   ├── README.md
 │   └── examples/           ← context.md  review.md  pre-merge.md
@@ -91,7 +91,7 @@ bash scripts/install-global.sh --uninstall  # 只移除本腳本裝的項目
 | 角色 | Agent tool，`subagent_type` 填角色名 | `.codex/agents/<r>.toml` 的 agent |
 | 前提 | 無 | Codex 需 trust 此專案才會載入 `.agents/` |
 
-skill 流程：`create-issue` → `create-worktree` → （新 session）`fix-issue` → `commit-push-pr`。
+skill 流程：`create-issue` → `create-worktree` → （新 session）`fix-issue` → `commit-push-pr` → `review-pr`（審 PR、發總結 comment；多輪只審增量）。
 
 **調度模式**（一次處理多個 issue）：主 session 呼叫 `orchestrate-issues`，它依檔案重疊分線，用 terminal multiplexer（目前支援 herdr；不在 multiplexer 內時退化成只建 worktree、請你自己開 session）替每條線開 worktree + agent session 跑 `fix-issue`，並監看各線、把關 review / CI / merge、收尾：
 
@@ -101,7 +101,7 @@ orchestrate-issues（主 session）
 ├── lane A: worktree + session → fix-issue → commit-push-pr ─┐
 ├── lane B: worktree + session → fix-issue → commit-push-pr ─┤
 │                                                            ▼
-└── 監看各線 → PR 關卡（reviewer / CI / merge）→ 收尾（移除 worktree、刪分支）
+└── 監看各線 → PR 關卡（review-pr / CI / merge）→ 收尾（移除 worktree、刪分支）
 ```
 
 merge 預設要問你（`auto_merge`）；yolo mode（`agent_start_args`）預設關閉。首次使用會引導設定這些 key 並記住。
@@ -117,4 +117,4 @@ merge 預設要問你（`auto_merge`）；yolo mode（`agent_start_args`）預�
 
 ## 已知未含
 
-- **review 類 skill** 進行中（#10）；thread／inline 動作（看 PR diff 版本、列出／回覆／resolve thread、留 inline comment）已可用，見 `_tracker/*.md`。
+- **`address-pr-review`**（處理收到的 review 意見）進行中（#10）；`review-pr` 已可用，thread／inline 動作見 `_tracker/*.md`。

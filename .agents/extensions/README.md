@@ -29,13 +29,13 @@
 
 ## review
 
-- 時機：`commit-push-pr` Step 2 自審（作為第四個角度）；`review-pr` Step 3；reviewer 的 Standards 軸。
+- 時機：`commit-push-pr` Step 2 自審（作為第四個角度）；`review-pr` Step 3；`address-pr-review` Step 2（只取「常見過嚴意見」）；reviewer 的 Standards 軸。
 - 格式：條列檢查項；可附「常見過嚴意見」（reviewer 不該提的，避免來回）。
 - 範例：[`examples/review.md`](examples/review.md)
 
 ## pre-merge
 
-- 時機：`orchestrate-issues` 5.3 CI 判讀後、5.4 merge 前**逐項執行**；`commit-push-pr` Step 6 只列出項目名（它不等 CI）。全部通過是 `auto_merge` 的條件之一。
+- 時機：`orchestrate-issues` 5.3 CI 判讀後、5.4 merge 前**逐項執行**；`commit-push-pr` Step 6 只列出項目名（它不等 CI）；`address-pr-review` Step 1 作為 finding 來源，**只做唯讀查詢**，未通過的項目轉成 finding（結果綁定當下 head，push 後要重查）。全部通過是 `auto_merge` 的條件之一。
 - 格式：每項一個 `###` 區塊，四欄：
 
   | 欄 | 內容 |

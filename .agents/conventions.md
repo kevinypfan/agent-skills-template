@@ -49,8 +49,8 @@ skill 本文**不得**硬編這些值，改值一律改這裡（個人偏好改�
 | `commit_language` | 依 `git log` 主要語言 | （同預設） | commit message 的語言：看 `git log -30 --format=%s` 多數 subject 用哪種語言；repo 無歷史則英文。可強制寫 `英文` / `繁體中文` |
 | `commit_trailer` | `Co-Authored-By: <agent>` | | commit message 結尾 trailer。Claude Code 用 `Co-Authored-By: Claude <noreply@anthropic.com>`；Codex 用 `Co-Authored-By: Codex <noreply@openai.com>` |
 | `verify_commands` | （無） | | `commit-push-pr` Step 2.5 的驗證閘門：`<觸發條件（git status 路徑 regex）> → <指令>`，可多列。空 = 跳過閘門。範例：`^.{2} crates/.*\.rs$ → cd crates && make test` |
-| `test_command` | （無） | | `fix-issue` Step 3 跑的測試指令（可依路徑分列） |
-| `lint_command` | （無） | | `fix-issue` Step 3 跑的 lint 指令 |
+| `test_command` | （無） | | `fix-issue` Step 3、`address-pr-review` Step 5 跑的測試指令（可依路徑分列） |
+| `lint_command` | （無） | | `fix-issue` Step 3、`address-pr-review` Step 5 跑的 lint 指令 |
 | `language` | 繁體中文 | | 對話、issue、PR 內文的語言；commit message 語言另見 `commit_language` |
 | `multiplexer` | `auto` | | `orchestrate-issues` 開 agent session 用的 terminal multiplexer：`auto` / `herdr` / `none`。偵測與動作對照見 `.agents/skills/_multiplexer/README.md` |
 | `agent_kind` | 目前所在的 agent | | 調度時開新 session 啟動的 agent（`claude` / `codex`…） |

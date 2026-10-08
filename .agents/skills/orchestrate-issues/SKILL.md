@@ -178,7 +178,9 @@ You **MUST** consider the user input before proceeding. The user input may conta
    ```
 
    `review-pr` 發佈前會請使用者確認；其結論（findings 與嚴重度）供下一步分級，並回報**完成狀態**（`complete` / `incomplete` / `needs-decision`）與**實際審到的 head sha**，供 5.4 判斷。狀態非 `complete`（必要的 adversarial pass 沒執行、有未裁決的 `needs-architect`、還在等使用者確認）→ 先補齊或問使用者，不視為 review 已過。
-2. **review 結果分級**：blocker／major → 送回原線 agent 在同一 PR 修；minor → 視成本決定修或略；範圍外 → 開新 issue。
+2. **review 結果分級**：blocker／major → 請原線 agent 呼叫 skill `address-pr-review` 在同一 PR 處理（透過 [multiplexer] 送指令，註明「完成目前這一步後再處理」；參數帶 PR 編號與輪次，格式同 `review-pr` 串接用的寫法）；minor → 視成本決定修或略（要修同樣走 `address-pr-review`）；範圍外 → 開新 issue。
+   - 5.1 的 `review-pr` 因「由 orchestrate-issues 呼叫」而去掉「發佈並處理」選項，所以不會與這裡重複觸發；`address-pr-review` 自己會呈現清單、等原線的使用者確認，確認畫面由 Step 4 的監看處理。
+   - 處理完 push 後 head 已變：回 5.1 以第 2 輪重審，其間 `address-pr-review` 回報的 pre-merge 結果視為過期，5.3 重查。
 3. **CI**：
    - [tracker] 看 PR CI 狀態（含等待）。0 個 check／CI 沒跑 → 先 [tracker] 看 PR 可否合併，有衝突要先解（交回原線 agent）。
    - CI 在其他 PR merge 前跑過、而 base 已變動（尤其動到同檔案）→ [tracker] 更新 PR 分支（base 併進來），讓 CI 以新 base 重跑。

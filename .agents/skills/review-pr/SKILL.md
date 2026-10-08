@@ -160,7 +160,11 @@ findings 格式與嚴重度沿用 `.agents/roles/reviewer.md`：`[嚴重度] 檔
 3. 各嚴重度的 finding 統計；上輪追蹤的已修／未修／不採納／已解決（無需改動）數。
 4. Adversarial pass：跑了誰、屬實與不成立各幾條；或「未執行」與原因。
 5. 若留了 inline：成功與失敗各幾條，失敗項併進總結的哪一則。
-6. 使用者選「發佈並處理」（非 orchestrate 呼叫）→ 呼叫 skill `address-pr-review`，帶 PR 編號與輪次，不重傳 findings。**該 skill 尚未存在時**（找不到）不要報錯，改提示使用者：「處理 review 意見的 skill 尚未提供，請手動處理後再重跑本 skill 做下一輪」。
+6. 使用者選「發佈並處理」（非 orchestrate 呼叫）→ 呼叫 skill `address-pr-review`，帶 PR 編號與輪次，不重傳 findings：
+
+   ```text
+   由 review-pr 呼叫；<PR 編號>，第 <N> 輪
+   ```
 7. 固定一列：「擴充點：context 已讀／無；review 已套用／無；pre-merge：無（本 skill 不執行）」。
 
 ## Important Notes

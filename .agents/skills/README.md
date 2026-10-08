@@ -12,7 +12,7 @@
 | `create-issue` | 依 template 建 issue | → `create-worktree` |
 | `create-worktree` | 從 issue 開 worktree + 分支 | → `fix-issue` |
 | `fix-issue` | 讀 issue、討論方案、實作、測試 | → `commit-push-pr` |
-| `commit-push-pr` | self-review、驗證閘門、commit、push、建/更新 PR | → `review-pr` |
+| `commit-push-pr` | self-review、驗證閘門、commit、push、建/更新 PR | Step 6 可接著 → `review-pr` |
 | `review-pr` | 審 PR（自審或審別人）：增量輪次、`--stat` 先行、必要時 fan-out `reviewer`、adversarial pass，確認後發佈總結 comment | （終點；`address-pr-review` 尚未提供） |
 | `orchestrate-issues` | 主 session 調度多個 issue：分線、用 multiplexer 開多條 agent 線跑 `fix-issue`、監看、PR 關卡、merge、收尾 | 各線 → `fix-issue` → `commit-push-pr` |
 | `ask-agents` | 打包問題給 codex / agy 拿第二意見 | 獨立 |

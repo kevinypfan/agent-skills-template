@@ -23,7 +23,7 @@ glab mr list --output json --per-page 100         # 預設只列 opened
 - MR 對應 issue：內文 `Closes #N`，或從 `source_branch` 的 `<prefix><N>-<slug>` 取編號。
 - 超過 100 個時加 `--label` / `--search` 縮小，或問使用者範圍。
 
-
+## 建 issue
 
 ```bash
 glab issue create \
@@ -90,6 +90,7 @@ MR 描述（以及 merge 進預設分支的 commit message）出現 **`Close` / 
 ```bash
 glab mr update <N> --description "<內文>"
 glab mr note <N> --message "<內文>"
+glab mr note <N> --message "$(cat <file>)"   # 長內文先寫暫存檔（glab 無 --body-file）
 ```
 
 ## 取自己帳號
@@ -167,6 +168,15 @@ glab ci get --branch <branch> --output json   # jobs[].id / name / status
 glab ci trace <job-id>
 ```
 
+## 看 PR（JSON）
+
+```bash
+glab mr view <N> --output json
+```
+
+JSON 欄位：`iid`（編號）、`title`、`description`（描述）、`author.username`、`target_branch`（= base）、`source_branch`（= head 分支）、`state`（`opened` / `merged` / `closed`）、`diff_refs.base_sha` / `diff_refs.head_sha`（base 與 head sha）、`web_url`。
+`diff_refs` 在 push 後可能短暫落後，見下節。
+
 ## 看 PR diff 版本（sha）
 
 inline comment 的 `position` 要三個 sha：`base_sha`、`head_sha`、`start_sha`。
@@ -185,6 +195,11 @@ print('start_sha:', v['start_commit_sha'])
 - ⚠ **不要用 `git merge-base`、本地 branch HEAD 推算**：GitLab 比對的是 MR 自己記錄的 diff version，sha 對不上時 API 回 400，或 comment 不會出現在 Changes tab。
 - 每次 push 都會產生新 version；留 inline 前重取，不要沿用舊的。
 - ⚠ push 後 GitLab 是**非同步**產生新 version：剛 push 完取到的 `head_sha` 可能還是舊的。先確認 `diff_refs.head_sha` 等於剛 push 的 commit（`git rev-parse HEAD`），不相等就隔幾秒重取，最多重試數次；仍不相等就停下回報。
+- **fetch PR head**：`<base_sha>` 或 `<head_sha>` 任一在本地不存在（`git cat-file -e <sha>^{commit}` 失敗）就 fetch。head 用 MR ref，不依賴分支名：
+
+```bash
+git fetch origin "merge-requests/<N>/head"   # 取回後 FETCH_HEAD 即 head；base 則 git fetch origin <target 分支名>
+```
 
 ## 列出 PR thread（含 resolved）
 
@@ -210,6 +225,7 @@ for d in items:
 - inline thread = `notes[].position` 非 null；`position` 內有 `new_path`、`old_path`、`new_line`、`old_line`。
 - `notes[]` 欄位：`id`（**note id**）、`body`、`author.username`、`system`（系統訊息，要排除）、`created_at`。
 - note 的 URL：`<web_url>#note_<note id>`（`web_url` 取自 `glab mr view <N> --output json`）。
+- ⚠ 上面的輸出**只是索引**（只印每個 discussion 的首則 note、body 截斷 60 字）。要納入上輪追蹤的 thread，再從同一份 `discussions` 回應取該 discussion 完整的 `notes[]`：每則的作者（`author.username`）、完整 `body`、`position`、以及後續回覆，不能只憑索引那一行判斷。
 
 ## 列出未解決 thread
 

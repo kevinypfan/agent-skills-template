@@ -1,7 +1,7 @@
 # 總結 comment 範本
 
 填入 `{{...}}` 後，作為 **[tracker] 留 PR 總結 comment** 的內容。內文語言依 conventions 的 `language`（標題固定）。
-沒有內容的區段整段省略，不要留空標題。`{{SHORT_SHA}}` 固定 7 碼（`git rev-parse --short=7 <head>`），跨輪一致才好對照與解析。
+沒有內容的區段整段省略，不要留空標題。`{{SHORT_SHA}}` 至少 7 碼（`git rev-parse --short=7 <head>`，碰撞時會更長），同一 PR 跨輪用同樣長度；解析端接受 7 碼以上。
 
 **只輸出下方第一條 `---` 之後的範本本體**；本檔開頭到該線為止是填寫說明，所有 `<!-- -->` 註解也要在發出前移除。
 
@@ -21,7 +21,7 @@
 {{OVERVIEW}}
 <!-- 2-4 句：這個 PR 做什麼、整體評價、本輪核心結論。
      自審在此註明「自審」；第 2 輪起先一句帶過上輪處理狀況；
-     審查範圍若退回全量（上輪 sha 不可用）要在此說明。 -->
+     審查範圍若退回全量（上輪 sha 不可用、或不是目前 head 的祖先）要在此說明。 -->
 
 ### 上輪追蹤
 <!-- 第 2 輪起才有；第 1 輪整段省略 -->
@@ -34,9 +34,10 @@
 ### Findings
 
 <!-- 依嚴重度排：blocker → major → minor → nit → needs-architect。
-     每條一個小標，必附 file:line（diff 新檔行號）。 -->
+     每條一個小標，附 file:line（diff 新檔行號）。
+     沒有檔案可附時（例如 PR 描述與實際不符）寫「（PR 描述「<段落>」）」取代 file:line。 -->
 
-#### [{{SEVERITY}}] {{TITLE}}（`{{FILE}}:{{LINE}}`）
+#### [{{SEVERITY}}] {{TITLE}}（`{{FILE}}:{{LINE}}`）<!-- 無檔案時：（PR 描述「<段落>」） -->
 
 {{DESCRIPTION}}
 <!-- 問題是什麼、為什麼是問題（對照實際 code）、建議修法。
@@ -53,7 +54,7 @@
 
 ### Adversarial pass
 <!-- 跑過、或增量由主對話自審、或未執行時才有。一段加清單：
-     問了誰（外部 agent／reviewer agent／主對話自審）、對整個 PR 或增量、
+     問了誰（外部 agent／reviewer agent（含 adversarial_external=false 或外部不可用）／主對話自審）、對整個 PR 或增量、
      屬實併入上方的幾條（標來源）、經查不成立的逐條「宣稱 → 為何不成立」。
      未執行要明寫原因，且結論不得寫「建議合併」。 -->
 
@@ -61,5 +62,5 @@
 
 {{CONCLUSION}}
 <!-- 一段：建議合併／處理 blocker 後合併／建議再討論；點名阻塞項與非阻塞項。
-     「建議合併」的條件：本輪無新 blocker／major，上輪 findings 全數已修或不採納成立；
+     「建議合併」的條件：本輪無新 blocker／major，上輪 findings 全數已修或不採納成立，且無未裁決的 needs-architect；
      自審或高風險另要求 Adversarial pass 已對整個 PR 跑過。 -->

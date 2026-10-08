@@ -27,6 +27,7 @@ git remote get-url origin
 | 看 issue（JSON） | `glab issue view <N> --output json` | `gh issue view <N> --json number,title,body,labels,url` | 欄位名不同，見各檔「JSON 欄位」 |
 | 建 issue | `glab issue create --title --label --assignee --description` | `gh issue create --title --label --assignee --body` | GitLab `--description` ≡ GitHub `--body` |
 | 查目前分支的 PR | `glab mr view "$BRANCH" --output json` | `gh pr view "$BRANCH" --json number,title,baseRefName,url,state` | 兩邊都以分支名查；不存在時非零 exit |
+| 看 PR（JSON） | `glab mr view <N> --output json` | `gh pr view <N> --json number,title,body,author,baseRefName,headRefName,state,headRefOid,baseRefOid,url` | 標題、描述、作者、base／head、狀態、sha；欄位名不同，見各檔「看 PR（JSON）」 |
 | 看 PR（含 comments） | `glab mr view <N> --comments` | `gh pr view <N> --comments` | |
 | 找 repo 的 PR template | （檔案偵測）`git ls-files` | （檔案偵測）`git ls-files` | 路徑與順序見各檔「repo 的 PR template」；`commit-push-pr` 在 `pr_template: auto` 時用 |
 | 建 PR | `glab mr create --title --target-branch --assignee --label --description --remove-source-branch` | `gh pr create --title --base --assignee --label --body` | GitHub 無 `--remove-source-branch`（repo 設定 auto-delete） |
@@ -44,8 +45,8 @@ git remote get-url origin
 | 改 PR base | `glab mr update <N> --target-branch <b>` | `gh pr edit <N> --base <b>` | 疊分支的前一個 PR merge 後用 |
 | 手動觸發 workflow / pipeline | `glab ci run --branch <b>` | `gh workflow run <file> --ref <b>` + `gh run watch <run>` | |
 | 看失敗 job log | `glab ci trace <job-id>` | `gh run view <run> --job <job> --log-failed` | |
-| 看 PR diff 版本（sha） | `glab mr view <N> --output json`（`diff_refs.{base_sha,head_sha,start_sha}`）；不用 `git merge-base` 推算 | `gh pr view <N> --json headRefOid,baseRefOid` | 留 inline 前先取；GitLab 要三個 sha，GitHub 只用 head |
-| 列出 PR thread（含 resolved） | `glab api ".../merge_requests/<N>/discussions?per_page=100" --paginate`（多頁是串接陣列，要逐段解析） | GraphQL `reviewThreads`（可分頁） | 回傳 thread id、note id、resolved 狀態；解析細節見各檔 |
+| 看 PR diff 版本（sha） | `glab mr view <N> --output json`（`diff_refs.{base_sha,head_sha,start_sha}`）；不用 `git merge-base` 推算 | `gh pr view <N> --json headRefOid,baseRefOid` | 留 inline 前先取；GitLab 要三個 sha，GitHub 只用 head。sha 在本地不存在時 fetch PR ref（GitHub `pull/<N>/head`、GitLab `merge-requests/<N>/head`），見各檔同節 |
+| 列出 PR thread（含 resolved） | `glab api ".../merge_requests/<N>/discussions?per_page=100" --paginate`（多頁是串接陣列，要逐段解析） | GraphQL `reviewThreads`（可分頁） | 回傳 thread id、note id、resolved 狀態；解析細節見各檔。GitLab 的輸出只是索引，要完整 notes 需另取（見 `gitlab.md`） |
 | 列出未解決 thread | 過濾 `notes[0].resolvable && !notes[0].resolved` | 過濾 `isResolved == false` | 同上 |
 | 列出總結 comment | `glab api .../notes`，`system=false` 且無 `position` | `issues/<N>/comments` + `pulls/<N>/reviews` 的 body | 不含 inline thread |
 | 在 diff 上留 inline comment（選用） | `POST discussions` 帶 `position`；JSON 用 `--input`，不可 `-f` 傳 nested | `POST pulls/<N>/comments`（`commit_id`、`path`、`line`、`side`） | 預設不留；行須在 diff 內，否則失敗，改走總結 comment |

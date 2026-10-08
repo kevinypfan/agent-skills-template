@@ -12,6 +12,9 @@ Claude Code 與 Codex **共用**的骨架：一組 issue-flow skill（GitLab / G
 │   ├── _tracker/           ← glab / gh 指令對照（非 skill）
 │   ├── _multiplexer/       ← herdr 等 terminal multiplexer 指令對照（非 skill）
 │   └── create-issue/  create-worktree/  fix-issue/  commit-push-pr/  orchestrate-issues/  ask-agents/
+├── extensions/             ← 擴充點說明與範例（專案在自己 repo 放 context / review / pre-merge.md）
+│   ├── README.md
+│   └── examples/           ← context.md  review.md  pre-merge.md
 └── roles/                  ← 委派角色本體（唯一指令真相）
     └── scout  runner  reviewer  worker  architect
 .claude/skills/             ← 產生的 Claude skill stub（勿手改）
@@ -19,7 +22,7 @@ Claude Code 與 Codex **共用**的骨架：一組 issue-flow skill（GitLab / G
 .codex/agents/              ← Codex agent stub（model / effort / sandbox 在這）
 scripts/
 ├── generate-skill-stubs.sh ← skill 真身 → stub
-├── check-skill-stubs.sh    ← 守門（skill stub + agent 三集合一致性 + 讓位段）
+├── check-skill-stubs.sh    ← 守門（skill stub + agent 三集合一致性 + 讓位段 + 擴充點）
 ├── pre-commit-skill-guard.sh
 ├── install-global.sh       ← 全域安裝（~/.agents、~/.claude、~/.codex）
 └── post-change-sync.sh     ← git hook 呼叫：已全域安裝時自動同步
@@ -69,6 +72,17 @@ bash scripts/install-global.sh --uninstall  # 只移除本腳本裝的項目
 - symlink 指向本 repo 的 working tree：本 repo 切到哪個分支，全域就生效哪個版本。**例外是複製 / 區塊項目**（Codex agent、`~/.codex/AGENTS.md`）：靠上面的 git hook 自動同步；沒啟用 hook 就手動重跑 `--apply`，dry-run 會標「過期」。
 - skill 讓位段判斷「全域版」的依據是**檔案不在當前 repo 內**，而不是路徑字面是 `~/.agents`——Codex 會把 symlink 解析成本 repo 的實際路徑顯示。
 
+## 三層客製：key／擴充點／整份讓位
+
+| 層 | 放什麼 | 位置 |
+|---|---|---|
+| key | 單一值（分支、label、測試指令…） | `.agents/conventions.md` |
+| 擴充點 | 固定時機要多做的事：`context`（先讀領域文件）、`review`（專屬檢查清單）、`pre-merge`（合併前的唯讀檢查，如 Sonar） | 專案 repo 的 `.agents/extensions/<name>.md` |
+| 整份讓位 | 流程真正不同 | 專案自己的同名 skill |
+
+能用 key 就用 key；只是「多做一步」用擴充點，不必 fork skill、也不會跟 template 分歧；流程真的不同才整份讓位（建議從含擴充步驟的現版 fork）。
+擴充點**只讀當前 repo 根**、不隨全域安裝、不退到 `~/.agents`，且不得要求本次改動範圍以外的寫入（merge、deploy、改 tracker、觸發 job）；所以團隊成員與 CI agent 讀得到。規則與範例見 `.agents/extensions/README.md`，複製 `examples/<name>.md` 改佔位符即可。
+
 ## 呼叫
 
 | | Claude Code | Codex |
@@ -99,7 +113,7 @@ merge 預設要問你（`auto_merge`）；yolo mode（`agent_start_args`）預�
 - skill：`mkdir .agents/skills/<name>` 寫 `SKILL.md`（規則見 `.agents/skills/README.md`）→ `bash scripts/generate-skill-stubs.sh` → commit。
 - 角色：`.agents/roles/<r>.md` 寫本體，再手寫 `.claude/agents/<r>.md` 與 `.codex/agents/<r>.toml` 兩份 stub（本文是 canonical 一句，守門逐字比對）→ commit。
 
-守門會擋：stub 與產生器輸出不符、手改 stub 本文、兩邊 description 不一致、讀寫權限兩邊不對稱、純讀角色本體漏掉唯讀守則句、skill 真身硬編 `glab` / `gh`、出現 multiplexer CLI 名（`herdr`）或用了 Claude 專屬 macro、skill 真身缺讓位段。
+守門會擋：stub 與產生器輸出不符、手改 stub 本文、兩邊 description 不一致、讀寫權限兩邊不對稱、純讀角色本體漏掉唯讀守則句、skill 真身硬編 `glab` / `gh`、出現 multiplexer CLI 名（`herdr`）或用了 Claude 專屬 macro、skill 真身缺讓位段、擴充點引用不合規（名稱不在清單、缺「不退到 `~/.agents`」、讀 `~/.agents/extensions`）、`.agents/extensions/` 出現清單外檔名的 `.md`。
 
 ## 已知未含
 

@@ -11,6 +11,10 @@
 #  3. agent（若有 .agents/roles/）：roles / .claude/agents / .codex/agents 三集合一致；description 非空且兩邊逐字相同；
 #     stub 本文逐字 canonical；Claude tools 含 Edit/Write ⟺ Codex workspace-write（例外見 WRITE_SANDBOX_EXCEPTIONS）；
 #     純讀角色本體含唯讀 Bash 守則句；global/AGENT-ROLES.md（全域派工政策）要點名每個角色
+#  4. 擴充點（見 .agents/extensions/README.md；掃描範圍＝skill 真身 SKILL.md 與 .agents/roles/*.md，不含各 README）：
+#     (a) 引用的 .agents/extensions/<name>.md 名稱必須在 EXTENSION_POINTS 內；(b) 引用擴充點的檔必含「擴充點」與「不退到 `~/.agents`」；
+#     (c) extensions/README.md 每個名稱有「## <name>」且 examples/<name>.md 存在；(d) extensions/ 內清單外的 .md（非三個合法檔名、README.md、examples/）→ ✗；
+#     (e) 真身與角色不得出現 ~/.agents/extensions
 # 手動：bash scripts/check-skill-stubs.sh
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -114,6 +118,41 @@ if [ -f global/AGENT-ROLES.md ] && [ -d .agents/roles ]; then
     grep -qF "\`$r\`" global/AGENT-ROLES.md || { echo "✗ role $r: global/AGENT-ROLES.md 沒有點名 \`$r\`（全域派工政策要涵蓋每個角色）"; fail=1; }
   done
 fi
+# ---- 擴充點（.agents/extensions/）：(a)(b)(e) 掃真身與角色，目錄不存在也照查；(c)(d) 只在目錄存在時查 ----
+EXTENSION_POINTS="context review pre-merge"
+ext_scan=$(ls .agents/skills/*/SKILL.md .agents/roles/*.md 2>/dev/null | grep -v '/README\.md$' || true)
+if [ -n "$ext_scan" ]; then
+  for f in $ext_scan; do
+    # (a) 只抓 .agents/extensions/<檔名>.md；README.md 與 examples/ 底下的路徑不算引用
+    refs=$(grep -oE '\.agents/extensions/[A-Za-z0-9_<>-]+\.md' "$f" | sed -e 's#.*/##' -e 's#\.md$##' | grep -vx README | sort -u || true)
+    [ -n "$refs" ] || continue
+    for r in $refs; do
+      case "$r" in "<name>") continue ;; esac   # canonical 句的佔位符
+      case " ${EXTENSION_POINTS} " in *" ${r} "*) ;; *) echo "✗ ${f}: 引用了清單外的擴充點 .agents/extensions/${r}.md（合法：${EXTENSION_POINTS}）"; fail=1 ;; esac
+    done
+    # (b) 引用擴充點的檔必含「擴充點」與「不退到 `~/.agents`」
+    { grep -qF '擴充點' "$f" && grep -qF '不退到 `~/.agents`' "$f"; } \
+      || { echo "✗ ${f}: 引用了擴充點但缺 canonical 句（需含「擴充點」與「不退到 \`~/.agents\`」；見 .agents/skills/README.md）"; fail=1; }
+  done
+  # (e) 真身與角色不得讀 ~/.agents/extensions（擴充點只看 repo 根）
+  if hits=$(grep -nF '~/.agents/extensions' $ext_scan); then
+    echo "✗ 真身或角色出現 ~/.agents/extensions（擴充點只讀當前 repo 根、不退到 ~/.agents）："; echo "$hits" | sed 's/^/    /'; fail=1
+  fi
+fi
+if [ -d .agents/extensions ]; then
+  # (c) README 每個名稱有 ## <name> 節，examples 存在
+  for e in $EXTENSION_POINTS; do
+    grep -qx "## ${e}" .agents/extensions/README.md 2>/dev/null || { echo "✗ .agents/extensions/README.md 缺「## ${e}」節"; fail=1; }
+    [ -f ".agents/extensions/examples/${e}.md" ] || { echo "✗ 缺 .agents/extensions/examples/${e}.md"; fail=1; }
+  done
+  # (d) 清單外的 .md（不是 EXTENSION_POINTS 的檔名、不是 README.md、不在 examples/ 底下）→ ✗，與執行時「清單外檔名 → 警告」對齊；專案放 review.md 等合法檔名不受影響
+  while IFS= read -r x; do
+    [ -n "$x" ] || continue
+    b=${x##*/}; b=${b%.md}
+    case " ${EXTENSION_POINTS} " in *" ${b} "*) [ "$(dirname "$x")" = .agents/extensions ] && continue ;; esac
+    echo "✗ ${x}: 擴充點目錄的清單外檔名（合法：${EXTENSION_POINTS}；另有 README.md、examples/）"; fail=1
+  done < <(find .agents/extensions -name '*.md' ! -path '.agents/extensions/README.md' ! -path '.agents/extensions/examples/*')
+fi
 
-[ $fail -eq 0 ] && echo "✓ skill stubs（${n}）一致，真身規則全過；agent stubs（${n_roles}）一致"
+[ $fail -eq 0 ] && echo "✓ skill stubs（${n}）一致，真身規則全過；agent stubs（${n_roles}）一致；擴充點檢查通過"
 exit $fail

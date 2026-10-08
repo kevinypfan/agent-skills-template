@@ -5,6 +5,7 @@
 #   ~/.agents/roles            → .agents/roles            symlink  角色本體（stub 找不到 repo 版時讀這裡）
 #   ~/.agents/conventions.md   → .agents/conventions.md   symlink  repo 無 conventions 時的推斷規則
 #   ~/.agents/conventions.local.md                       不碰     個人覆寫層（使用者 / skill 自建；不建立、--uninstall 也不刪）
+#   （不裝）.agents/extensions                            擴充點是專案流程，只讀當前 repo 根；~/.agents/extensions 不會存在，skill 也不讀它
 #   ~/.agents/skills/<s>       → .agents/skills/<s>       symlink  skill 真身（Codex 直接掃；含 _tracker）
 #   ~/.claude/skills/<s>       → .claude/skills/<s>       symlink  Claude skill stub
 #   ~/.claude/agents/<r>.md    → .claude/agents/<r>.md    symlink  Claude agent stub
@@ -31,7 +32,7 @@ for a in "$@"; do
     --uninstall) mode=uninstall ;;
     --no-codex) codex=0 ;;
     --quiet) quiet=1 ;;
-    -h|--help) sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "未知參數：$a（可用 --apply / --uninstall / --no-codex / --quiet）" >&2; exit 2 ;;
   esac
 done

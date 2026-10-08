@@ -147,6 +147,7 @@ glab mr merge <N> --auto-merge=false --rebase
 ```
 
 - ⚠ **一定要 `--auto-merge=false`**：pipeline 還在跑時 `glab mr merge` 預設開 auto-merge 並立刻返回，不是真的 merge 了。調度流程是 CI 通過後才 merge。
+- 要綁定已審查的 sha 時加 `--sha <sha>`（完整 40 碼）：source 分支 HEAD 不等於該 sha 就拒絕 merge（確保只合併審過的 commit）。
 - 不加 `--remove-source-branch`：刪分支由收尾步驟依 `delete_branch_after_merge` 處理。
 - merge 後 `glab issue view <issue> --output json` 看 `state` 確認 issue 已因 `Closes #<issue>` 關閉。
 

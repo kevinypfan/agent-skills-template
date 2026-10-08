@@ -40,7 +40,7 @@ git remote get-url origin
 | 看 PR 會關閉哪些 issue | `glab api projects/:id/merge_requests/<N>/closes_issues`（`[].iid`） | `gh pr view <N> --json closingIssuesReferences`（`[].number`） | merge 前核對；只應包含這個 PR 完整解決的 issue。關鍵字規則見各檔「自動關閉關鍵字」 |
 | 重新打開 issue | `glab issue reopen <N>` | `gh issue reopen <N> --comment <text>` | 被誤關時用；GitLab 另外 [tracker] 在 issue 留言說明 |
 | 看 PR 可否合併 | `glab mr view <N> --output json`（`detailed_merge_status`、`has_conflicts`） | `gh pr view <N> --json mergeable,mergeStateStatus` | 可合併的判準見各檔 |
-| merge PR | `glab mr merge <N> --auto-merge=false [--squash\|--rebase] --message` | `gh pr merge <N> --merge\|--squash\|--rebase --subject --body` | 方法依 conventions 的 `merge_method`；GitLab 務必 `--auto-merge=false` |
+| merge PR | `glab mr merge <N> --auto-merge=false [--sha <sha>] [--squash\|--rebase] --message` | `gh pr merge <N> --merge\|--squash\|--rebase [--match-head-commit <sha>] --subject --body` | 方法依 conventions 的 `merge_method`；GitLab 務必 `--auto-merge=false`。要綁定已審查的 sha 時加 `--sha <sha>`／`--match-head-commit <sha>`，head 已變則 merge 失敗 |
 | 更新 PR 分支（base 併進來） | `glab mr rebase <N>`（會改寫歷史）或本地 merge base 後 push | `gh pr update-branch <N>`（merge，不 force push） | |
 | 改 PR base | `glab mr update <N> --target-branch <b>` | `gh pr edit <N> --base <b>` | 疊分支的前一個 PR merge 後用 |
 | 手動觸發 workflow / pipeline | `glab ci run --branch <b>` | `gh workflow run <file> --ref <b>` + `gh run watch <run>` | |

@@ -142,6 +142,7 @@ gh pr merge <N> --squash --subject "<subject>" --body "<body>"         # squash
 gh pr merge <N> --rebase                                                # rebase（無 subject）
 ```
 
+- 要綁定已審查的 sha 時加 `--match-head-commit <sha>`（完整 40 碼）：PR head 不等於該 sha 就拒絕 merge。
 - 不加 `--delete-branch`：刪分支由收尾步驟依 `delete_branch_after_merge` 處理（疊分支時下一個 PR 還指著它當 base）。
 - merge 後 `gh issue view <issue> --json state` 確認 issue 已因 `Closes #<issue>` 自動關閉。
 

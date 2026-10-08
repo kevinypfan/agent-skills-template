@@ -63,9 +63,10 @@ git status --short
 對 conventions `verify_commands` 的每一列 `<regex> → <指令>`：
 
 ```bash
-git status --short | grep -qE '<regex>' && echo MATCH || echo SKIP
+git status --short --untracked-files=all | grep -qE '<regex>' && echo MATCH || echo SKIP
 ```
 
+- 一定要 `--untracked-files=all`：預設只把新目錄印成一行 `?? newdir/`，裡面的檔案比對不到，整個新模組會漏過閘門
 - `MATCH` → 跑該指令；**fail 就停**，回報錯誤、絕不 commit
 - 全部 `SKIP` 或 `verify_commands` 為空 → 跳過
 

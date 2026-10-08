@@ -73,7 +73,7 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 ### Step 4: 建立 Issue
 
 執行 **[tracker] 建 issue**（title / labels / assignee / 內文）。
-GitHub 端 label 必須已存在於 repo（見 `github.md`），不存在時先告知使用者、不要自行建 label。
+label 必須已存在於 repo，不存在時先告知使用者、不要自行建 label。GitHub 會直接報錯；GitLab 會**靜默新建**同名 label，打錯字或漏前綴不會有任何提示——先依 tracker 檔核對（見 `github.md` / `gitlab.md`）。
 
 ### Step 5: 回報結果
 

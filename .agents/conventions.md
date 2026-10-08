@@ -54,7 +54,7 @@ skill 本文**不得**硬編這些值，改值一律改這裡（個人偏好改�
 | `multiplexer` | `auto` | | `orchestrate-issues` 開 agent session 用的 terminal multiplexer：`auto` / `herdr` / `none`。偵測與動作對照見 `.agents/skills/_multiplexer/README.md` |
 | `agent_kind` | 目前所在的 agent | | 調度時開新 session 啟動的 agent（`claude` / `codex`…） |
 | `agent_start_args` | （無） | | 啟動 agent 的額外參數。yolo mode 在這裡開（Claude `--dangerously-skip-permissions`；Codex `--dangerously-bypass-approvals-and-sandbox`），預設關閉 |
-| `auto_merge` | `false` | | `orchestrate-issues`：`true` = review 無 blocker、CI 全綠、可合併時自動 merge；`false` = 每個 PR merge 前問使用者 |
+| `auto_merge` | `false` | | `orchestrate-issues`：`true` = review 無 blocker、CI 全綠、可合併、pre-merge 擴充點全通過（沒有則略）四項皆成立時自動 merge；`false` = 每個 PR merge 前問使用者 |
 | `merge_method` | `merge` | | `merge` / `squash` / `rebase` |
 | `merge_subject` | 依 `git log --merges` 慣例 | | merge commit subject 格式（如 `Merge pull request #<N> from <branch>`、`<PR title> (#<N>)`） |
 | `delete_branch_after_merge` | `true` | | 收尾時是否刪除已 merge 的本地與遠端分支 |

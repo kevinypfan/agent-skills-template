@@ -14,6 +14,7 @@
 - [ ] 已考慮向後相容性
 - [ ] 已通過 lint / typecheck
 - [ ] 已通過驗證閘門（conventions `verify_commands`，若有命中）
+- [ ] 專案 `.agents/extensions/review.md` 已過（若有）
 
 ## 備註
 {{NOTES}}

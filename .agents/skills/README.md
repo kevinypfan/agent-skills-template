@@ -22,7 +22,7 @@
 ## 寫作規則（標 ✅ 者由 `scripts/check-skill-stubs.sh` 在 pre-commit 強制；其餘人工審）
 
 - ✅ **每份真身開頭必有「先決定照哪一份跑」讓位段**（緊接在 `> This skill should only…` 之後；新 skill 從既有 skill 複製，把 skill 名換掉）。原因：全域安裝時 Claude 的全域 skill 會蓋掉專案同名 skill、Codex 則兩份並列，靠這段讓全域版改讀專案客製版。
-- 真身裡的 `.agents/…` 路徑照寫 repo 相對形式即可；讓位段第 2 點已規定「repo 沒有就退到 `~/.agents/…`」，不要自己寫 `~/.agents` 絕對路徑。唯一例外是只存在於家目錄的個人覆寫層 `~/.agents/conventions.local.md`。
+- 真身裡的 `.agents/…` 路徑照寫 repo 相對形式即可；讓位段第 2 點已規定「repo 沒有就退到 `~/.agents/…`」，不要自己寫 `~/.agents` 絕對路徑。唯一例外是只存在於家目錄的個人覆寫層 `~/.agents/conventions.local.md`。擴充點 `.agents/extensions/` 則**不退到** `~/.agents`，只看當前 repo 根（見下方「讀擴充點用 canonical 句」）。
 - ✅ 改行為、改 frontmatter 都只改這裡，然後跑 `bash scripts/generate-skill-stubs.sh` 重生 stub（pre-commit 擋不一致）。
 - frontmatter 可含 Claude 擴充欄位（`allowed-tools`、`disable-model-invocation` 等）——Codex 忽略未知欄位，產生器整段複製給 stub。
 - ✅ **stub 的等價範圍只有 frontmatter + `$ARGUMENTS` 轉交**。真身經 `Read` 打開是普通 markdown，Claude 載入 skill 檔時才做的前處理一律不會發生：`$ARGUMENTS` / `$1`… 不替換、`` !`cmd` `` 不預執行、`$CLAUDE_PROJECT_DIR` 等變數不存在。真身**不得**含這些——使用者參數一律寫 `<使用者參數（由呼叫端帶入）>`；要先跑的指令寫成「先用 Bash 執行」的普通步驟，repo 根用 `git rev-parse --show-toplevel`。
@@ -30,6 +30,8 @@
 - ✅ **不要寫 `/name`**，也不要並列 per-tool 語法（Claude 為 `/name`；Codex 為 `$name`），對照只在本 README 一處。串接其他 skill 寫「呼叫 skill `name`」，參數另起 code block。
 - ✅ **不硬編 tracker CLI**：本文只寫「**[tracker] 動作名**」（動作表在 `_tracker/README.md`），`glab` / `gh` 指令只能出現在 `_tracker/<tracker>.md` 與 frontmatter 的 `compatibility` 行。
 - ✅ **不寫 multiplexer CLI 名**：本文只寫「**[multiplexer] 動作名**」（動作表在 `_multiplexer/README.md`），`herdr` 等 CLI 名（連說明文字）只能出現在 `_multiplexer/<name>.md` 與 frontmatter 的 `compatibility` 行；新增 multiplexer 時把 CLI 名加進 `scripts/check-skill-stubs.sh` 的 `MULTIPLEXER_CLIS`。
+- ✅ **讀擴充點用 canonical 句**（機制見 `.agents/extensions/README.md`；`<name>` 換成 `context` / `review` / `pre-merge`）。引用擴充點的真身與角色本體必含「擴充點」與「不退到 `~/.agents`」，名稱只能是清單內的三個，且不得出現 `~/.agents/extensions`：
+  > 讀擴充點 `.agents/extensions/<name>.md`：只看當前 repo 根（`git rev-parse --show-toplevel`），不退到 `~/.agents`；有就照做、沒有就跳過，兩種情況都寫進回報的「擴充點」列。
 - **不硬編專案值**（分支名、路徑、label、測試指令）：寫「conventions 的 `<key>`」。check 不查這條，靠人工審。
 - Claude 專屬機制（`$SCRATCHPAD`、`AskUserQuestion`）若真身要用，同一句要寫明 Codex 端的替代（`mktemp -d`、對話中列選項）。
 

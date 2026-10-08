@@ -117,4 +117,4 @@ merge 預設要問你（`auto_merge`）；yolo mode（`agent_start_args`）預�
 
 ## 已知未含
 
-- **review 類 skill**（在 PR diff 上留 inline comment、回覆 / resolve thread）：GitLab 與 GitHub 的 inline API 語意不對等（GitHub resolve 只有 GraphQL），本版 `_tracker/*.md` 的「inline comment」節標為未提供，`commit-push-pr` 遇到會跳過該步。
+- **review 類 skill** 進行中（#10）；thread／inline 動作（看 PR diff 版本、列出／回覆／resolve thread、留 inline comment）已可用，見 `_tracker/*.md`。

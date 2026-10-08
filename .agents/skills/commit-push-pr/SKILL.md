@@ -134,15 +134,17 @@ git push -u origin "$(git branch --show-current)"
 
 ### Step 5: Inline Comments on Diff (Optional)
 
-PR 建好後**詢問使用者**是否要在 diff 上留 inline comment 解釋非顯而易見的設計決策（為何選 A 不選 B、trade-off、workaround、隱含相依）。
+**預設不留。** 只有使用者要求在 diff 上留 inline comment（解釋非顯而易見的設計決策：為何選 A 不選 B、trade-off、workaround、隱含相依）時才做：
 
-若使用者同意：依 `.agents/skills/_tracker/<tracker>.md` 的「inline comment」節操作。**該節標示未提供時跳過此步並告知使用者**（改把要點併進 PR 描述或總結 comment）。只留必要的，不重複 PR 描述已說的。
+1. **[tracker] 看 PR diff 版本**，取得定位用的 sha（剛 push 完要確認 head sha 已更新，見 tracker 檔）。取不到 → 整批改併進 **[tracker] 留 PR 總結 comment**，並在 Step 6 註明原因
+2. 逐條 **[tracker] 在 diff 上留 inline comment**。只留必要的，不重複 PR 描述已說的
+3. **單條失敗不中斷**（多半是該行不在 diff 內）：繼續留剩下的；全部試完後，把失敗的項目（每條標明原定 `檔案:行號`）併進一則 **[tracker] 留 PR 總結 comment**，並在 Step 6 列出
 
 ### Step 6: Report Result
 
 1. PR URL
 2. PR 內容摘要，含用了哪份內文骨架（內建／repo 的哪個檔）
-3. 若有留 inline comment，列出留了哪些
+3. 若有留 inline comment，列出留了哪些；有失敗而改併進總結 comment 的，另列哪幾條、原因
 4. 讀擴充點 `.agents/extensions/pre-merge.md`：只看當前 repo 根（`git rev-parse --show-toplevel`），不退到 `~/.agents`；有就照做、沒有就跳過，兩種情況都寫進回報的「擴充點」列。此處只讀出 `###` 標題，不執行任何「怎麼查」指令；本 skill 不等 CI，註明「merge 前由調度者（`orchestrate-issues` 5.3）或人工執行」。
 5. 固定一列：「擴充點：review 已套用／無；pre-merge：<名稱> 未檢查（未執行，merge 前由 orchestrate-issues 5.3 或人工執行）」，每個項目一筆；沒有 pre-merge 寫「pre-merge：無」
 

@@ -24,6 +24,7 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 - PR title
 - Related issue number
 - Additional context for the PR description
+- 呼叫端可指定「PR 已存在時採追加 comment」（Option A 有此指定就不再詢問）
 
 ## Step 0: 讀設定
 
@@ -94,7 +95,7 @@ git push -u origin "$(git branch --show-current)"
 
 #### Option A: PR 已存在
 
-**詢問使用者**要：
+呼叫端已指定採追加 comment → 直接採用，不再詢問；否則**詢問使用者**要：
 - **追加 comment**（預設，適合小修正 / review 回應）→ **[tracker] 留 PR 總結 comment**，內容：
 
   ```markdown

@@ -38,6 +38,21 @@ glab issue create \
 - `--assignee "@me"` 可用
 - 回傳 issue URL（stdout 最後一行）
 
+## repo 的 PR template
+
+`commit-push-pr` 在 `pr_template: auto` 時用。檔名大小寫不拘，用 `git ls-files` 比對（不要用 `test -f`，Linux 上會漏大小寫）：
+
+```bash
+git ls-files '.gitlab/merge_request_templates/*.md'
+```
+
+1. 其中檔名為 `default.md`（大小寫不拘，GitLab 的預設 template）→ 用它
+2. 沒有 default、但有其他 template（如 `Bug.md`）→ GitLab 不會自動套用這些，列出檔名問使用者要用哪一份或用內建版
+3. 都沒有 → 用內建版
+
+- GitLab 專案設定裡的「Default description template」（不是檔案）偵測不到；團隊若用它，請在 conventions 把 `pr_template` 指到一份 repo 檔
+- `glab mr create` 不會自動套用 repo template，內文要自己帶進 `--description`
+
 ## 查目前分支的 PR
 
 ```bash

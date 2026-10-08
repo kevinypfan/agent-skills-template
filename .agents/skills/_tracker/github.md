@@ -38,6 +38,21 @@ gh issue create \
 - `--assignee "@me"` 可用
 - 回傳 issue URL
 
+## repo 的 PR template
+
+`commit-push-pr` 在 `pr_template: auto` 時用。檔名大小寫不拘，用 `git ls-files` 比對（不要用 `test -f`，Linux 上會漏大小寫）：
+
+```bash
+git ls-files | grep -iE '^(\.github/|docs/)?pull_request_template\.md$'
+git ls-files | grep -iE '^(\.github/|docs/)?pull_request_template/[^/]+\.md$'
+```
+
+1. 單檔 `pull_request_template.md`，依序找 `.github/`、repo 根、`docs/`，用第一份
+2. 沒有單檔、但有 `PULL_REQUEST_TEMPLATE/` 目錄（同樣可在 `.github/`、根、`docs/`）→ GitHub 本身不會自動套用目錄裡的 template（要 `?template=` 指定），列出檔名問使用者要用哪一份或用內建版
+3. 都沒有 → 用內建版
+
+- `gh pr create --body` 會整個取代 repo template，內文要自己依 template 填好再帶進去
+
 ## 查目前分支的 PR
 
 ```bash

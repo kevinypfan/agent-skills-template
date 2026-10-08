@@ -34,10 +34,10 @@
 ### Findings
 
 <!-- 依嚴重度排：blocker → major → minor → nit → needs-architect。
-     每條一個小標，附 file:line（diff 新檔行號）。
+     每條一個小標，標題前加序號 {{N}}（1 起，依排序；供 `summary:<comment id>#<序號>` 引用），附 file:line（diff 新檔行號）。
      沒有檔案可附時（例如 PR 描述與實際不符）寫「（PR 描述「<段落>」）」取代 file:line。 -->
 
-#### [{{SEVERITY}}] {{TITLE}}（`{{FILE}}:{{LINE}}`）<!-- 無檔案時：（PR 描述「<段落>」） -->
+#### {{N}}. [{{SEVERITY}}] {{TITLE}}（`{{FILE}}:{{LINE}}`）<!-- 無檔案時：（PR 描述「<段落>」） -->
 
 {{DESCRIPTION}}
 <!-- 問題是什麼、為什麼是問題（對照實際 code）、建議修法。

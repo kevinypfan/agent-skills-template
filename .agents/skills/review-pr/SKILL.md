@@ -82,7 +82,7 @@ git diff --stat <base>...<head>
    - **是祖先** → 再比較兩段的 merge-base：`git merge-base <base> <上輪 sha>` 與 `git merge-base <base> <head>`（`<base>` 為 Step 1 的 base sha；這裡只用來比較兩者是否相同，不用來推算 base）。
      - **相同**（期間 base 沒有被併進來）→ 增量 = two-dot `git diff <上輪 sha> <head>`：`--stat` 取檔案清單，之後逐檔取 `git diff <上輪 sha> <head> -- <path>`。**不用三點 `<上輪 sha>...<head>`**。
      - **不同**（期間 base 被併進來或有更新）→ two-dot 會混入 base 的變更，不能用。用 `git range-diff <base>...<上輪 sha> <base>...<head>` 看哪些 commit 被新增或改寫，再對受影響的 commit 與檔案逐檔比較 `git diff <base>...<上輪 sha> -- <path>` 與 `git diff <base>...<head> -- <path>`；判不清楚就退回全量並在總覽註明。
-3. **上輪追蹤**（第 2 輪起）：上輪每條 finding 判定為已修／未修／不採納／已解決（無需改動，例如描述與事實後來吻合、前提已被證實成立）。**「討論已關閉」與「問題已修」分開記**：thread 的 resolved 只是線索，不代表修好；判定「已修」一律在本輪 head 讀 code 確認（`git show <head>:<path>`）。總結內的 finding 對照後續追加 comment 與實際 code。人留的未解決 thread 一併納入；GitLab 要納入的 thread 另取完整 notes（作者、body、position、回覆），見 `_tracker/gitlab.md`。
+3. **上輪追蹤**（第 2 輪起）：上輪每條 finding 判定為已修／未修／不採納／已解決（無需改動，例如描述與事實後來吻合、前提已被證實成立）。**「討論已關閉」與「問題已修」分開記**：thread 的 resolved 只是線索，不代表修好；判定「已修」一律在本輪 head 讀 code 確認（`git show <head>:<path>`）。總結內的 finding 對照後續追加 comment 與實際 code；`address-pr-review` 留的 `## Review 處置（第 N 輪，對應 summary:<comment id>）` comment 是處置結果與不採納理由的來源（逐條 finding id → 已修／已解決（無需改動）／不採納／待討論），要讀；配對用標題的 summary comment id 對上上輪總結的 comment id，沒有 id 的（`## Review 處置（第 N 輪）`）退回用輪次配對；其中「已修」只是聲稱，仍要在 head 讀 code 確認，「不採納」的理由成立才判不採納。人留的未解決 thread 一併納入；GitLab 要納入的 thread 另取完整 notes（作者、body、position、回覆），見 `_tracker/gitlab.md`。
 4. **高風險分類**（第 2 輪起對「增量範圍」分類，與 Step 3b 一致；整個 PR 是否已被外部 agent 審過另看 Step 3b 的狀態規則）：逐項寫 yes／no／unknown 與依據（`file:line`）：① 刪資料；② 憑證、個資或使用者輸入原文輸出到外部；③ 對外契約或資料格式；④ 以「先驗證、後動手」為前提的破壞性流程；⑤ 資料完整性（分頁、對帳、冪等、重試、搬資料）。任一項 yes 或 unknown → 高風險。
 5. **assumption 清單**，兩個來源都要：(a) 作者明示（描述、註解、測試名稱裡的前提句）；(b) 從 code 推導（作者沒寫、但 code 要成立就必須為真的條件，如排序鍵唯一、驗證與動手之間無寫入、操作冪等）。清單不得因作者沒揭露而留空。
 
@@ -133,7 +133,7 @@ findings 格式與嚴重度沿用 `.agents/roles/reviewer.md`：`[嚴重度] 檔
 2. **收斂判準**：本輪無新 blocker／major，且上輪的 blocker／major 都已修或不採納成立 → 結論可寫「建議合併」。上輪未處理的 minor／nit 不阻擋：在上輪追蹤表標「未修（非阻塞）」，結論列為非阻塞項。自審或高風險的 PR 另加一條：Step 3b 已跑過，否則不得寫。有未裁決的 `needs-architect` 也不得寫。
 3. **在對話中完整呈現**稿件（findings、嚴重度、結論）。**自審也一樣**：先呈現、等使用者確認才發佈，不自動發。
 4. 問使用者（沒有互動選單的環境直接在對話中列出選項；第一個為預設）。**由 `orchestrate-issues` 呼叫時選項去掉「發佈並處理」**（只剩只發佈／調整／另外留 inline），仍要呈現並等使用者確認；處理交給 orchestrate 5.2，不串接 `address-pr-review`。
-   - **發佈並處理**（預設）→ Step 5 發佈後進 Step 6 串接
+   - **發佈並處理**（預設）→ Step 5 發佈後進 Step 6 串接。列出此選項前先檢查本地：目前分支是 PR 的 head 分支、與 PR head 一致且工作樹乾淨才維持預設；不符合時標註「發佈後需先切到 PR 分支或 worktree，`address-pr-review` 才能執行」，並把預設改為「只發佈」
    - **只發佈** → Step 5 發佈後停在 Step 6 回報
    - **調整** → 增刪改 finding、嚴重度、措辭，改完重新呈現再問
    - **另外留 inline** → 列出建議錨定的 finding（Step 3 標記的），使用者勾選後，Step 5 除總結外逐條留
@@ -160,7 +160,11 @@ findings 格式與嚴重度沿用 `.agents/roles/reviewer.md`：`[嚴重度] 檔
 3. 各嚴重度的 finding 統計；上輪追蹤的已修／未修／不採納／已解決（無需改動）數。
 4. Adversarial pass：跑了誰、屬實與不成立各幾條；或「未執行」與原因。
 5. 若留了 inline：成功與失敗各幾條，失敗項併進總結的哪一則。
-6. 使用者選「發佈並處理」（非 orchestrate 呼叫）→ 呼叫 skill `address-pr-review`，帶 PR 編號與輪次，不重傳 findings。**該 skill 尚未存在時**（找不到）不要報錯，改提示使用者：「處理 review 意見的 skill 尚未提供，請手動處理後再重跑本 skill 做下一輪」。
+6. 使用者選「發佈並處理」（非 orchestrate 呼叫）→ 呼叫 skill `address-pr-review`，帶 PR 編號與輪次，不重傳 findings：
+
+   ```text
+   由 review-pr 呼叫；<PR 編號>，第 <N> 輪
+   ```
 7. 固定一列：「擴充點：context 已讀／無；review 已套用／無；pre-merge：無（本 skill 不執行）」。
 
 ## Important Notes

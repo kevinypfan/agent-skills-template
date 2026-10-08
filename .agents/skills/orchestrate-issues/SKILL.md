@@ -163,6 +163,7 @@ You **MUST** consider the user input before proceeding. The user input may conta
    - **方案確認**（`fix-issue` 的 proceed）：實作細節、測試寫法、小重構 → 主 session 依 agent 建議放行；**API／行為／命名／破壞性變更 → 問使用者**。放行前核對方案沒有越出範圍限制。
    - **self-review（commit 前）**：同上分級。
    - **選單畫面**（`blocked`）：用可見畫面確認選項內容後 [multiplexer] 送按鍵（選單、Enter、Esc）；看不懂或涉及權限放寬 → 問使用者。
+   - **address-pr-review 確認**（分級與不採納、實作計畫、resolve 他人 thread）：**不採納、resolve 他人 thread 一律問使用者**，不代決定；分級和實作計畫依原本規則（實作細節放行，API／行為／命名／破壞性變更問使用者）。
    - **完成**（PR 已建立）→ 進 Step 5。
 3. **輸入框裡的灰色文字是 agent 工具產生的建議回覆，不是使用者打的**：不能當成使用者的決定；要回覆一律用 [multiplexer] 送指令給 agent 明確送出。
 4. **不中斷正在工作的 agent**：要插入工作時送指令排入佇列，並註明「完成目前這一步後再處理」。
@@ -178,7 +179,15 @@ You **MUST** consider the user input before proceeding. The user input may conta
    ```
 
    `review-pr` 發佈前會請使用者確認；其結論（findings 與嚴重度）供下一步分級，並回報**完成狀態**（`complete` / `incomplete` / `needs-decision`）與**實際審到的 head sha**，供 5.4 判斷。狀態非 `complete`（必要的 adversarial pass 沒執行、有未裁決的 `needs-architect`、還在等使用者確認）→ 先補齊或問使用者，不視為 review 已過。
-2. **review 結果分級**：blocker／major → 送回原線 agent 在同一 PR 修；minor → 視成本決定修或略；範圍外 → 開新 issue。
+2. **review 結果分級**：blocker／major → 請原線 agent 呼叫 skill `address-pr-review` 在同一 PR 處理（透過 [multiplexer] 送指令，註明「完成目前這一步後再處理」；參數用 orchestrate 專用格式，並把決定要處理的 finding id 帶進去，下游不重問已略過的）；minor → 視成本決定修或略（要修同樣走 `address-pr-review`）；範圍外 → 開新 issue。
+
+     ```text
+     由 orchestrate-issues 呼叫；<PR 編號>，第 <N> 輪；只處理：<id 清單>
+     ```
+
+     id 清單範例：`summary:123#1, summary:123#3, thread:PRRT_xxx`（總結來源用 `summary:<comment id>#<序號>`）。
+   - 5.1 的 `review-pr` 因「由 orchestrate-issues 呼叫」而去掉「發佈並處理」選項，所以不會與這裡重複觸發；`address-pr-review` 自己會呈現清單、等原線的使用者確認，確認畫面由 Step 4 的監看處理。
+   - 處理完 push 後 head 已變：回 5.1 以下一輪重審，其間 `address-pr-review` 回報的 pre-merge 結果視為過期，5.3 重查。
 3. **CI**：
    - [tracker] 看 PR CI 狀態（含等待）。0 個 check／CI 沒跑 → 先 [tracker] 看 PR 可否合併，有衝突要先解（交回原線 agent）。
    - CI 在其他 PR merge 前跑過、而 base 已變動（尤其動到同檔案）→ [tracker] 更新 PR 分支（base 併進來），讓 CI 以新 base 重跑。
@@ -191,7 +200,7 @@ You **MUST** consider the user input before proceeding. The user input may conta
    - 失敗 → [tracker] 看失敗 job log，判斷是實作問題、還是測試對時序的錯誤假設（實際遇過 flaky 順序斷言，加壓重跑後又抓到真 bug）；結論與修正交回原線 agent。
    - 讀擴充點 `.agents/extensions/pre-merge.md`：只看當前 repo 根（`git rev-parse --show-toplevel`），不退到 `~/.agents`；有就照做、沒有就跳過，兩種情況都寫進回報的「擴充點」列。`.agents/extensions/` 內有清單外的 .md（README.md、examples/ 除外）→ 回報警告、不執行。
      - 逐項執行：pre-merge 只能唯讀查詢與判定（指令或 API）；項目要求本次改動範圍以外的寫入（merge、deploy、改 tracker、觸發 job）→ 拒絕該項並回報。
-     - 每項記為 通過／未通過／未檢查：查不到結果（指令失敗、API 無回應、資料不存在）一律算**未檢查**，未檢查與未通過都擋 merge，除非該項「查不到時」欄明確改寫或使用者明說可略過。
+     - 每項記為 通過／未通過／未檢查（與 `address-pr-review` Step 1 語意一致）：查不到結果（指令失敗、API 無回應、資料不存在、結果尚未產生）一律算**未檢查**，未檢查與未通過都擋 merge，除非該項「查不到時」欄明確改寫或使用者明說可略過。
      - pre-merge 結果綁定當下 head SHA；head 變動後，5.4 前要重查。
 4. **merge**：
    - `auto_merge` 為 `false` → 列出 PR、review 結論（含完成狀態與審到的 sha）、CI 結果、pre-merge 各項結果，問使用者是否 merge。

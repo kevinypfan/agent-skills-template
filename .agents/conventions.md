@@ -51,7 +51,7 @@ skill 本文**不得**硬編這些值，改值一律改這裡（個人偏好改�
 | `verify_commands` | （無） | | `commit-push-pr` Step 2.5 的驗證閘門：`<觸發條件（git status 路徑 regex）> → <指令>`，可多列。空 = 跳過閘門。範例：`^.{2} crates/.*\.rs$ → cd crates && make test` |
 | `test_command` | （無） | | `fix-issue` Step 3、`address-pr-review` Step 5 跑的測試指令（可依路徑分列） |
 | `lint_command` | （無） | | `fix-issue` Step 3、`address-pr-review` Step 5 跑的 lint 指令 |
-| `language` | 繁體中文 | | 對話、issue、PR 內文的語言；commit message 語言另見 `commit_language` |
+| `language` | 繁體中文 | | 對話、issue、PR 內文的語言；專有名詞、技術術語、程式碼識別字、指令保留英文原文，不硬翻。commit message 語言另見 `commit_language` |
 | `multiplexer` | `auto` | | `orchestrate-issues` 開 agent session 用的 terminal multiplexer：`auto` / `herdr` / `none`。偵測與動作對照見 `.agents/skills/_multiplexer/README.md` |
 | `agent_kind` | 目前所在的 agent | | 調度時開新 session 啟動的 agent（`claude` / `codex`…） |
 | `agent_start_args` | （無） | | 啟動 agent 的額外參數。yolo mode 在這裡開（Claude `--dangerously-skip-permissions`；Codex `--dangerously-bypass-approvals-and-sandbox`），預設關閉 |

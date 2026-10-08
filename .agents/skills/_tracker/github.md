@@ -164,6 +164,133 @@ gh run view <run-id> --job <job-id> --log-failed
 
 `gh workflow run` 不回傳 run id：觸發後隔幾秒用 `gh run list` 取最新一筆。
 
-## inline comment（diff 上的 review comment）
+## 看 PR diff 版本（sha）
 
-**本版未提供。** 對應 API 為 `POST repos/{owner}/{repo}/pulls/<N>/comments`（定位用 `commit_id + path + line + side`，與 GitLab 三 sha 不同）、回覆用 `pulls/<N>/comments/{id}/replies`、**resolve 只有 GraphQL `resolveReviewThread`**。之後移植 review skill 時補在這裡；skill 遇到「inline comment」步驟且本節仍是此狀態就**跳過該步並告知使用者**。
+```bash
+gh pr view <N> --json headRefOid,baseRefOid
+```
+
+- `headRefOid` = PR 最新 head commit；inline comment 的 `commit_id` 用它。
+- `baseRefOid` = base 分支目前的 commit；審查範圍用 `git diff <baseRefOid>...<headRefOid>`。
+- 只需要 head sha 一個（GitLab 要三個）。每次 push 後 `headRefOid` 會變，留 inline 前重取。
+
+## 列出 PR thread（含 resolved）
+
+review thread 只有 GraphQL 拿得到 `isResolved` 與 thread node id。
+
+```bash
+gh api graphql --paginate \
+  -F owner='{owner}' -F repo='{repo}' -F number=<N> \
+  -f query='
+query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100, after: $endCursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id
+          isResolved
+          isOutdated
+          path
+          line
+          comments(first: 100) {
+            nodes { databaseId url author { login } body }
+          }
+        }
+      }
+    }
+  }
+}'
+```
+
+欄位：
+
+- thread `id`：**thread id**（node id，形如 `PRRT_…`），resolve / unresolve 用。
+- `isResolved`、`isOutdated`（程式碼已被後續 commit 改動）、`path`、`line`（outdated 時可能為 `null`）。
+- `comments.nodes[]`：`databaseId` = **note id**（數字，REST 用）、`url`、`author.login`、`body`。**首則** comment 的 `databaseId` 給「回覆 thread」用。
+
+分頁：
+
+- `reviewThreads` 一頁最多 100 筆。`gh api graphql --paginate` 會自動帶 `$endCursor` 翻頁，前提是 query 有宣告 `$endCursor: String`、用 `after: $endCursor`，且 `pageInfo { hasNextPage endCursor }` 在 `reviewThreads` 底下（上面已寫好）。
+- `--paginate` 的輸出是**串接的多個 JSON 物件**（每頁一個），不是一個 array；要合併用 `--slurp`（需 gh 2.48 以上）：`gh api graphql --paginate --slurp ... | jq '[.[].data.repository.pullRequest.reviewThreads.nodes[]]'`。
+- 單一 thread 內 `comments(first: 100)` 也有上限；超過 100 則回覆的 thread 極少見，遇到就對該 thread 的 `id` 另用 `node(id: ...)` 查並翻頁。
+
+## 列出未解決 thread
+
+沿用上一節的 query，過濾 `isResolved == false`：
+
+```bash
+gh api graphql --paginate --slurp \
+  -F owner='{owner}' -F repo='{repo}' -F number=<N> \
+  -f query='<同上>' \
+  | jq '[.[].data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)
+         | {id, path, line, isOutdated, note_id: .comments.nodes[0].databaseId, author: .comments.nodes[0].author.login, body: .comments.nodes[0].body}]'
+```
+
+## 列出總結 comment
+
+總結 comment 分兩處：PR 對話區的 issue comment，與 review 送出時的整體 body。
+
+```bash
+gh api "repos/{owner}/{repo}/issues/<N>/comments" --paginate \
+  --jq '.[] | {id, user: .user.login, body, html_url, created_at}'
+gh api "repos/{owner}/{repo}/pulls/<N>/reviews" --paginate \
+  --jq '.[] | select(.body != "") | {id, user: .user.login, state, body, html_url, submitted_at}'
+```
+
+- `--jq` 對每頁各跑一次，多頁輸出直接串接即可，不用特別合併。
+- reviews 的 `body` 為空（只有 inline comment 的 review）要略過；`state` 為 `APPROVED` / `CHANGES_REQUESTED` / `COMMENTED`。
+- 要找自己留的，用 [tracker] 取自己帳號後比對 `user.login`。
+
+## 在 diff 上留 inline comment（選用）
+
+預設不留，只有使用者要求才用。先 [tracker] 看 PR diff 版本取 `headRefOid`。逐條送出，不做批次 review API。
+
+```bash
+gh api "repos/{owner}/{repo}/pulls/<N>/comments" \
+  -f body='comment 內容' \
+  -f commit_id='<headRefOid>' \
+  -f path='<path>' \
+  -F line=42 \
+  -f side='RIGHT'
+```
+
+- `line` 必須是整數，用 `-F`（`-f` 會變字串）；`body` 含中文或多行時改 `-F body=@<file>`。
+- `side`：`RIGHT` = 新檔案（新增行或 context 行）；刪除行用 `LEFT`，此時 `line` 是舊檔行號。
+- 該行必須**出現在本次 diff 中**；不在 diff 內會回 HTTP 422（`line could not be resolved` / `Validation Failed`），這類內容改走總結 comment。
+- 多行範圍可加 `start_line` 與 `start_side`（`start_line` 小於 `line`）。
+- 回傳的 `.id` 是 note id，`.html_url` 是連結；新 thread 的 thread id 要再用「列出 PR thread」查。
+- rename 不用分開填舊／新路徑：`path` 填 head 上的路徑。
+
+## 回覆 thread
+
+```bash
+gh api "repos/{owner}/{repo}/pulls/<N>/comments/<note id>/replies" \
+  -f body='回覆內容'
+```
+
+- `<note id>` = thread **首則** comment 的 `databaseId`（來自「列出 PR thread」）。回覆已是回覆的 comment 會失敗。
+- 回傳的 `.id` 是新 note id。
+
+## resolve / unresolve thread
+
+只有 GraphQL；`<thread id>` 是 `reviewThreads.nodes[].id`（`PRRT_…`），不是 `databaseId`。
+
+```bash
+gh api graphql -f threadId='<thread id>' -f query='
+mutation($threadId: ID!) {
+  resolveReviewThread(input: {threadId: $threadId}) {
+    thread { id isResolved }
+  }
+}'
+
+gh api graphql -f threadId='<thread id>' -f query='
+mutation($threadId: ID!) {
+  unresolveReviewThread(input: {threadId: $threadId}) {
+    thread { id isResolved }
+  }
+}'
+```
+
+- 回傳的 `thread.isResolved` 應為 `true`（resolve）或 `false`（unresolve），用來確認。
+- 需要 token 有 `repo` scope，且對該 PR 有寫入權限。

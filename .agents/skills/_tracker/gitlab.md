@@ -167,6 +167,130 @@ glab ci get --branch <branch> --output json   # jobs[].id / name / status
 glab ci trace <job-id>
 ```
 
-## inline comment（diff 上的 discussion）
+## 看 PR diff 版本（sha）
 
-**本版未提供。** 需要 `merge_requests/<N>/versions` 取 `base_sha/head_sha/start_sha`、再 POST `discussions` 帶 `position` JSON；有硬性限制（不可用 `-f` 傳 nested、`new_line`/`old_line` 規則）。之後從 review skill 移植時補在這裡；skill 遇到「inline comment」步驟且本節仍是此狀態就**跳過該步並告知使用者**。
+inline comment 的 `position` 要三個 sha：`base_sha`、`head_sha`、`start_sha`。
+
+```bash
+glab mr view <N> --output json     # .diff_refs.{base_sha,head_sha,start_sha}（優先用這個）
+glab api "projects/:id/merge_requests/<N>/versions" | python3 -c "
+import sys,json
+v = json.load(sys.stdin)[0]       # 第 0 筆 = 最新 version
+print('base_sha: ', v['base_commit_sha'])
+print('head_sha: ', v['head_commit_sha'])
+print('start_sha:', v['start_commit_sha'])
+"
+```
+
+- ⚠ **不要用 `git merge-base`、本地 branch HEAD 推算**：GitLab 比對的是 MR 自己記錄的 diff version，sha 對不上時 API 回 400，或 comment 不會出現在 Changes tab。
+- 每次 push 都會產生新 version；留 inline 前重取，不要沿用舊的。
+
+## 列出 PR thread（含 resolved）
+
+```bash
+glab api "projects/:id/merge_requests/<N>/discussions?per_page=100" --paginate | python3 -c "
+import json, sys
+dec = json.JSONDecoder()
+raw = sys.stdin.read()
+idx, items = 0, []
+while idx < len(raw):
+    while idx < len(raw) and raw[idx] in ' \t\r\n': idx += 1
+    if idx >= len(raw): break
+    page, idx = dec.raw_decode(raw, idx)
+    items.extend(page)
+for d in items:
+    n = d['notes'][0]
+    print(d['id'], n['id'], n.get('resolvable'), n.get('resolved'), bool(n.get('position')), n['body'][:60].replace('\n', ' '))
+"
+```
+
+- ⚠ **`--paginate` 多頁輸出是串接的多個 JSON array**（`[...][...]`），不能直接 `json.load`（會爆 `Extra data`）。上面用 `raw_decode` 迴圈逐段消化，body 內含 `][` 字面也不怕。單頁（< 100 筆）時結果相同。
+- discussion 物件只有 `id`（**thread id**）、`individual_note`、`notes` 三個 key，**沒有 top-level `resolved`**：`resolved` 在 `notes[].resolved`，且僅 `resolvable: true` 的 diff note 有意義（純 comment 為 `null`）。照字面用 `.resolved` 會全拿到 `null`，把已 resolve 的誤判成未修。
+- inline thread = `notes[].position` 非 null；`position` 內有 `new_path`、`old_path`、`new_line`、`old_line`。
+- `notes[]` 欄位：`id`（**note id**）、`body`、`author.username`、`system`（系統訊息，要排除）、`created_at`。
+- note 的 URL：`<web_url>#note_<note id>`（`web_url` 取自 `glab mr view <N> --output json`）。
+
+## 列出未解決 thread
+
+沿用上一節的取得方式，過濾條件：首則 note `resolvable == true` 且 `resolved == false`。
+
+```bash
+# 把上一節 python 的 for 迴圈改成：
+for d in items:
+    n = d['notes'][0]
+    if n.get('resolvable') and not n.get('resolved'):
+        print(d['id'], n['id'], n['body'][:60].replace('\n', ' '))
+```
+
+`individual_note: true` 的是單則 comment、不是 thread，不會被 `resolvable` 命中。
+
+## 列出總結 comment
+
+```bash
+glab api "projects/:id/merge_requests/<N>/notes?per_page=100&sort=asc" --paginate
+```
+
+- 多頁時同樣是串接 array，解析方式同「列出 PR thread」。
+- 總結 comment = `system == false` 且**沒有** `position` 的 note；`body` 是內文、`author.username` 是作者、`id` 是 note id。
+- 要找自己留的，用 [tracker] 取自己帳號後比對 `author.username`。
+
+## 在 diff 上留 inline comment（選用）
+
+預設不留，只有使用者要求才用。先 [tracker] 看 PR diff 版本取三個 sha。
+
+```bash
+cat > <tmpdir>/inline.json <<'EOF'
+{
+  "body": "comment 內容",
+  "position": {
+    "position_type": "text",
+    "base_sha": "<base_sha>",
+    "head_sha": "<head_sha>",
+    "start_sha": "<start_sha>",
+    "new_path": "<path>",
+    "old_path": "<path>",
+    "new_line": 42
+  }
+}
+EOF
+
+glab api "projects/:id/merge_requests/<N>/discussions" \
+  --method POST \
+  --header "Content-Type: application/json" \
+  --input <tmpdir>/inline.json
+```
+
+回傳新 discussion，`.id` 是 thread id、`.notes[0].id` 是 note id。
+
+硬性規則：
+
+- ⚠ **JSON 一律用 `--input`，嚴禁 `-f` / `--field` 傳 `position`**：`-f` 走 form data，nested object（`position.base_sha` 等）解析不了，comment 不會釘上 Changes tab。
+- ⚠ **嚴禁用 `printf` 產生 JSON**：中文字元會壞格式。一律 `cat <<'EOF'` heredoc 寫檔。
+- 行號：
+  - `new_line` = 該行在**新檔案**的行號，且該行必須**出現在本次 diff 中**（新增行或 context 行）。
+  - 標**被刪除的行**：改用 `old_line`（舊檔行號），省略 `new_line`。
+  - 未變更且不在 diff context 內的行**釘不上**，API 會回錯（多半 HTTP 400）；這類內容改走總結 comment。
+- 檔案 rename：`old_path` 填舊路徑、`new_path` 填新路徑；不確定時先看 `git diff --stat -M` 的 rename 標記。未 rename 兩者填同一個。
+
+## 回覆 thread
+
+```bash
+cat > <tmpdir>/reply.json <<'EOF'
+{"body": "回覆內容"}
+EOF
+glab api "projects/:id/merge_requests/<N>/discussions/<thread id>/notes" \
+  --method POST --header "Content-Type: application/json" --input <tmpdir>/reply.json
+```
+
+- `<thread id>` = discussion 的 `id`（不是 note id）。
+- 這裡只有 flat field，技術上可用 `-f body=...`；含中文或多行時仍用 `--input` + heredoc。
+
+## resolve / unresolve thread
+
+```bash
+glab api "projects/:id/merge_requests/<N>/discussions/<thread id>" --method PUT -f resolved=true
+glab api "projects/:id/merge_requests/<N>/discussions/<thread id>" --method PUT -f resolved=false
+```
+
+- `resolved` 是 flat field，可用 `-f`。
+- 只對 `resolvable` 的 thread 有效。

@@ -163,11 +163,15 @@ do_worktree() { # $1=flags（plain／allow-untracked／trust-merged 的組合）
       fi ;;
     esac
     # update-ref 不像 branch -D 會擋「正在使用的 branch」，自己查（含 main worktree）；dry-run 時這個 worktree 還在，排除它
-    others=$(git -C "$repo" for-each-ref --format='%(worktreepath)' "refs/heads/$br" 2>/dev/null | while IFS= read -r wp; do
-      [ -n "$wp" ] && [ "$(realdir "$wp")" != "$p" ] && echo x; done)
-    [ -n "$others" ] && { del=0; why="還有其他 worktree checkout 這個 branch"; }
+    if others=$(git -C "$repo" for-each-ref --format='%(worktreepath)' "refs/heads/$br" 2>/dev/null); then
+      others=$(printf '%s\n' "$others" | while IFS= read -r wp; do [ -n "$wp" ] && [ "$(realdir "$wp")" != "$p" ] && echo x; done)
+      [ -n "$others" ] && { del=0; why="還有其他 worktree checkout 這個 branch"; }
+    else
+      del=0; why="無法確認 branch 是否還有 worktree 在用"
+    fi
     if [ "$del" = 1 ] && [ "$dry" = 1 ]; then
-      case "$flags" in *" trust-merged "*) ;; *) msg="${msg}，local branch $br 將刪（實際執行時需 fetch 成功）"; del=2 ;; esac
+      case "$flags" in *" trust-merged "*) msg="${msg}，local branch $br 將刪" ;; *) msg="${msg}，local branch $br 將刪（實際執行時需 fetch 成功）" ;; esac
+      del=2
     fi
     if [ "$del" = 2 ]; then :
     elif [ "$del" = 1 ]; then

@@ -268,8 +268,7 @@ artifact_refusal() { # $1=實際路徑 $2=active_cwds 檔
   name=$(basename "$d")
   is_artifact_name "$name" || { echo "名稱不在可重建目錄白名單"; return; }
   [ -e "$d/.git" ] && { echo "本身是 git repo／worktree，可能有未保存的工作"; return; }
-  [ -n "$(nested_gits "$d" | head -1)$(find "$d" -mindepth 1 -maxdepth 1 -name .git 2>/dev/null)" ] \
-    && { echo "裡面有巢狀的 git repo／worktree，可能有未保存的工作"; return; }
+  [ -n "$(nested_gits "$d" | head -1)" ] && { echo "裡面有巢狀的 git repo／worktree，可能有未保存的工作"; return; }
   parent=$(dirname "$d")
   top=$(git -C "$parent" rev-parse --show-toplevel 2>/dev/null) || { echo "不在 git repo 內，無法確認可重建"; return; }
   [ "$(realdir "$top")" = "$(realdir "$HOME")" ] && { echo "所屬 repo 是家目錄（dotfiles 類），ignore 規則不代表可重建"; return; }

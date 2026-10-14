@@ -85,6 +85,7 @@ $W/issue-7-empty" >/dev/null 2>&1; echo $?)"
 check "remove：worktree list 失敗時 --orphan 拒絕" REFUSE "$(rw --orphan "$F/brk-worktrees/w" | first)"
 check "remove：worktree list 失敗時 --prune 拒絕" REFUSE "$(rw --prune "$F/brk" | first)"
 check "remove：.venv 裡有 repo 的 worktree 拒絕" REFUSE "$(rw "$W/issue-25-venv" | first)"
+check "remove：dry-run 加 --trust-merged 時預告「將刪」" yes "$(rw --trust-merged "$W/issue-5-open" | grep -q '將刪' && echo yes || echo no)"
 check "remove：不認得的參數 exit 2" 2 "$($B "$S/remove-worktrees.sh" --bogus >/dev/null 2>&1; echo $?)"
 
 # ---- remove-worktrees：實際刪除（不加 --dry-run；fixture 的 origin 是本機 bare repo，fetch 會成功）----

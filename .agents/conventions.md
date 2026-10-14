@@ -39,6 +39,7 @@ skill 本文**不得**硬編這些值，改值一律改這裡（個人偏好改�
 | `base_branch` | `main` | `main` | 開發分支：worktree 的 base、PR 的 target |
 | `worktree_root` | `<repo 父目錄>/<repo 目錄名>-worktrees` | （同預設） | `create-worktree` 放 worktree 的目錄，子目錄 `issue-<number>-<slug>`（slug 與 branch 共用，見 `create-worktree`） |
 | `branch_prefix` | `fix/` `feat/` `chore/` | （同預設） | 依 issue label 對應的分支前綴，規則見 `create-worktree` |
+| `cleanup_roots` | （無；首次執行時詢問） | | `clean-disk` 掃描的根目錄（可多個，逗號分隔，如 `~/Project`）；跨 repo 的個人設定，通常寫在 `~/.agents/conventions.local.md` |
 | `issue_labels_required` | （無） | | `create-issue` 每張 issue 必加的 label（逗號分隔；如 `team::backend`） |
 | `issue_labels_type` | `bug` `feature` `maintenance` `doc` | | type label 名稱；tracker 有 scoped label（GitLab `type::bug`）就寫完整名 |
 | `issue_labels_optional` | （無） | | priority / component 等選填 label 表，格式自由（skill 只在使用者提到時套用） |

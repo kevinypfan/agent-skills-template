@@ -85,7 +85,7 @@ for t in green yellow red; do
 done
 printf '# repos 掃到 %s 個\n' "$(wc -l < "$tmp/repos" | tr -d ' ')"
 if [ -s "$tmp/fetch_failed" ]; then
-  printf '# fetch 失敗（base 可能過期；這些 repo 的 green 只代表「併進本機記錄的 base」，remove 會再 fetch，失敗就不刪 branch）：%s\n' "$(tr '\n' ' ' < "$tmp/fetch_failed")"
+  printf '# fetch 失敗或不完整（base 可能過期，或有自訂 refspec 而未 prune；這些 repo 的 green 只代表「併進本機記錄的 base」，remove 會再 fetch，失敗就不刪 branch）：%s\n' "$(tr '\n' ' ' < "$tmp/fetch_failed")"
 fi
 if [ -s "$tmp/list_failed" ]; then
   printf '# 無法列出 worktree（已略過，孤兒判斷也略過）：%s\n' "$(tr '\n' ' ' < "$tmp/list_failed")"

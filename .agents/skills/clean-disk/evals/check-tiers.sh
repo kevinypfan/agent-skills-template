@@ -16,6 +16,7 @@ check "script 內沒有 \$var 緊接全形字元（要寫 \${var}）" "" "$hits"
 sleeper=""
 R=$(mktemp -d); R=$(cd "$R" && pwd -P); trap '[ -n "$sleeper" ] && kill "$sleeper" 2>/dev/null; rm -rf "$R"' EXIT
 export HOME="$R/home"; mkdir -p "$HOME"
+export GIT_CONFIG_NOSYSTEM=1 XDG_CONFIG_HOME="$HOME/.config"
 bash "$here/make-fixture.sh" "$R/fx" >/dev/null 2>&1 || { echo "✗ make-fixture 失敗"; exit 1; }
 F="$R/fx"; W="$F/app-worktrees"
 (cd "$W/issue-10-active" && exec sleep 600) & sleeper=$!
@@ -28,10 +29,14 @@ for pair in issue-1-merged:green issue-2-squashed:green issue-3-dirty:red issue-
             issue-6-notes:yellow issue-7-empty:green issue-8-orphan:yellow issue-9-gone:green issue-10-active:red \
             issue-11-broken:yellow issue-12-env:yellow issue-13-detached-locked:red issue-14-gone-detached:red \
             issue-15-merge-extra:red app/dist:yellow issue-17-nested-outer:red issue-18-cherry:green issue-19-assume:red \
-            issue-20-unborn:red issue-21-merging:red orph-nogit:yellow issue-23-pr-env:yellow issue-24-log:yellow; do
+            issue-20-unborn:red issue-21-merging:red orph-nogit:yellow issue-23-pr-env:yellow issue-24-log:yellow \
+            issue-25-venv:red; do
   check "分級 ${pair%%:*}" "${pair#*:}" "$(tier_of "${pair%%:*}")"
 done
 check "symlink 不列為孤兒" "" "$(tier_of issue-16-symlink)"
+check "worktree list 失敗的 repo 出現在摘要" yes "$(printf '%s\n' "$scan" | grep -q '^# 無法列出 worktree.*brk' && echo yes || echo no)"
+check "worktree list 失敗時不把它的 worktree 列成孤兒" "" "$(tier_of brk-worktrees/w)"
+check "繼承的 GIT_INDEX_FILE 不影響分級" red "$(GIT_INDEX_FILE="$R/none" $B "$S/scan-worktrees.sh" --no-fetch --no-size "$F" | awk -F'\t' '$3 ~ /issue-3-dirty$/ { print $1; exit }')"
 check "detached 的 branch 欄" "detached" "$(printf '%s\n' "$scan" | awk -F'\t' '$3 ~ /issue-13-detached-locked$/ { print $4 }')"
 
 # ---- 產物掃描 ----
@@ -45,6 +50,7 @@ check "產物：被 !keep/build/ 取消 ignore 的不列" no "$(has "$F/app/keep
 check "產物：底下有巢狀 repo 的 coverage 不列" no "$(has "$F/app/coverage")"
 check "產物：只有上層規則命中的 out 不列" no "$(has "$F/tools/build-tools/out")"
 check "產物：info/exclude 命中的 out 不列" no "$(has "$F/excl/out")"
+check "產物：裡面有 editable 套件 repo 的 .venv 不列" no "$(has "$F/app/.venv")"
 
 # ---- remove-artifacts ----
 out=$($B "$S/remove-artifacts.sh" "$W/issue-5-open/node_modules" --dry-run)
@@ -54,6 +60,10 @@ mkdir -p "$HOME/proj/node_modules"; (cd "$HOME" && git init -q . && printf 'node
 check "remove-artifacts：家目錄 repo 拒絕" REFUSE "$($B "$S/remove-artifacts.sh" --dry-run "$HOME/proj/node_modules" | first)"
 check "remove-artifacts：路徑含換行拒絕" REFUSE "$($B "$S/remove-artifacts.sh" --dry-run "$W/issue-5-open/node_modules
 $F/app/keep/build" | first)"
+
+check "remove-artifacts：開頭有空白的路徑不會指到別的目錄" yes "$($B "$S/remove-artifacts.sh" " $W/issue-5-open/node_modules" >/dev/null; [ -d "$W/issue-5-open/node_modules" ] && echo yes || echo no)"
+$B "$S/remove-artifacts.sh" "$W/issue-7-empty/node_modules" >/dev/null
+check "remove-artifacts：實際刪除" yes "$([ -e "$W/issue-7-empty/node_modules" ] && echo no || echo yes)"
 
 # ---- remove-worktrees：拒絕 ----
 rw() { $B "$S/remove-worktrees.sh" --dry-run --no-fetch "$@" 2>/dev/null; }
@@ -72,6 +82,9 @@ check "remove：detached 有獨有 commit 時拒絕 prune" 0 "$(rw --prune "$F/a
 check "remove：旗標後接 --dry-run 時 exit 2" 2 "$($B "$S/remove-worktrees.sh" --allow-untracked --dry-run "$W/issue-1-merged" >/dev/null 2>&1; echo $?)"
 check "remove：路徑含換行 exit 2" 2 "$($B "$S/remove-worktrees.sh" --dry-run "$W/issue-1-merged
 $W/issue-7-empty" >/dev/null 2>&1; echo $?)"
+check "remove：worktree list 失敗時 --orphan 拒絕" REFUSE "$(rw --orphan "$F/brk-worktrees/w" | first)"
+check "remove：worktree list 失敗時 --prune 拒絕" REFUSE "$(rw --prune "$F/brk" | first)"
+check "remove：.venv 裡有 repo 的 worktree 拒絕" REFUSE "$(rw "$W/issue-25-venv" | first)"
 check "remove：不認得的參數 exit 2" 2 "$($B "$S/remove-worktrees.sh" --bogus >/dev/null 2>&1; echo $?)"
 
 # ---- remove-worktrees：實際刪除（不加 --dry-run；fixture 的 origin 是本機 bare repo，fetch 會成功）----
@@ -94,6 +107,17 @@ check "實刪：dirty 的修改還在" yes "$(grep -q changed "$W/issue-3-dirty/
 check "實刪：巢狀 worktree 的修改還在" yes "$(grep -q dirty "$W/issue-17-nested-outer/dist/a.txt" && echo yes || echo no)"
 check "實刪：assume-unchanged 的修改還在" yes "$(grep -q hidden "$W/issue-19-assume/a.txt" && echo yes || echo no)"
 check "實刪：remote branch 沒被刪" yes "$(git -C "$F/origin.git" rev-parse -q --verify refs/heads/feat/23-pr-env >/dev/null && echo yes || echo no)"
+
+# fetch 失敗時 worktree 照刪、branch 保留
+git -C "$F/app" remote set-url origin "$R/nonexistent.git"
+rr "$W/issue-7-empty" >/dev/null
+check "實刪：fetch 失敗時 worktree 照刪" yes "$(gone "$W/issue-7-empty")"
+check "實刪：fetch 失敗時 branch 保留" yes "$(br_exists chore/7-empty)"
+git -C "$F/app" remote set-url origin "$F/origin.git"
+# --prune 成功：先手動移除 issue-14 的 metadata（它有獨有 commit，會擋 prune），剩下 issue-9 可 prune
+rm -rf "$F/app/.git/worktrees/issue-14-gone-detached"
+rr --prune "$F/app" >/dev/null
+check "實刪：--prune 成功清掉殘留 metadata" no "$(git -C "$F/app" worktree list --porcelain | grep -q 'issue-9-gone' && echo yes || echo no)"
 
 [ "$fail" = 0 ] && echo "全部通過" || echo "有失敗"
 exit "$fail"

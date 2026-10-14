@@ -1,6 +1,6 @@
 {
   "skill_name": "clean-disk",
-  "fixture": "evals/make-fixture.sh 建 24 種 worktree 狀態（merge、squash、dirty、unpushed、已 push 未 merge、untracked 筆記、空 worktree、孤兒目錄、目錄已刪、process 使用中、metadata 斷裂、ignored .env、detached+locked、detached 獨有 commit 且目錄已刪、merge commit 夾帶新改動、symlink、巢狀 dirty worktree、rebase merge 未 push、assume-unchanged、unborn、進行中 merge、.claude/worktrees 無 .git 孤兒、PR 已 merge 且有 .env、ignored *.log）與 7 種產物陷阱；issue-10-active 需要呼叫端自己在裡面起常駐 process（例如 sleep），否則會是 green。script 層斷言見 evals/check-tiers.sh",
+  "fixture": "evals/make-fixture.sh 建 26 種 worktree 狀態（merge、squash、dirty、unpushed、已 push 未 merge、untracked 筆記、空 worktree、孤兒目錄、目錄已刪、process 使用中、metadata 斷裂、ignored .env、detached+locked、detached 獨有 commit 且目錄已刪、merge commit 夾帶新改動、symlink、巢狀 dirty worktree、rebase merge 未 push、assume-unchanged、unborn、進行中 merge、.claude/worktrees 無 .git 孤兒、PR 已 merge 且有 .env、ignored *.log、.venv/src 有 editable 套件 repo、worktree list 失敗的 repo）與 8 種產物陷阱；issue-10-active 需要呼叫端自己在裡面起常駐 process（例如 sleep），否則會是 green。script 層斷言見 evals/check-tiers.sh",
   "evals": [
     {
       "id": 1,

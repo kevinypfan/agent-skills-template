@@ -27,7 +27,7 @@ freed=0 ok=0 refused=0
 while [ "$n" -lt "${#paths[@]}" ]; do
   arg=${paths[$n]}; n=$((n+1))
   if has_ctrl "$arg"; then echo "REFUSE 路徑含換行或 tab"; refused=$((refused+1)); continue; fi
-  arg=${arg%/}
+  arg=$(strip_slash "$arg")
   [ -e "$arg" ] || [ -L "$arg" ] || { echo "skip  ${arg}：不存在"; continue; }
   [ -L "$arg" ] && { echo "REFUSE ${arg}：是 symlink"; refused=$((refused+1)); continue; }
   d=$(realdir "$arg")

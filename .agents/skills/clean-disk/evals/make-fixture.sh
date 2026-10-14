@@ -8,7 +8,7 @@ blob() { mkdir -p "$1"; head -c "$2" /dev/zero > "$1/blob"; }
 git init -q --bare origin.git
 git clone -q origin.git app 2>/dev/null; cd app
 git checkout -q -b main
-printf 'node_modules/\n.env\ndist/\nbuild/\ncoverage/\n*.log\n!keep/build/\n' > .gitignore; echo base > a.txt; git add .; git commit -qm init; git push -q -u origin main
+printf 'node_modules/\n.venv/\n.env\ndist/\nbuild/\ncoverage/\n*.log\n!keep/build/\n' > .gitignore; echo base > a.txt; git add .; git commit -qm init; git push -q -u origin main
 W="$R/app-worktrees"; mkdir -p "$W"
 mk() { git worktree add -q -b "$1" "$W/$2" origin/main; }
 # 1 一般 merge 進 main
@@ -72,6 +72,10 @@ mk feat/23-pr-env issue-23-pr-env; (cd "$W/issue-23-pr-env"; echo p > p23.txt; g
 # 24 已 merge、乾淨，但有被 ignore 的 debug.log（*.log 不算可重建）
 mk chore/24-log issue-24-log; echo trace > "$W/issue-24-log/debug.log"
 git push -q origin main
+# 25 已 merge、乾淨，但 .venv/src/pkg 是 pip install -e git+… 放的真 repo（有本地 commit）
+mk chore/25-venv issue-25-venv; git init -q "$W/issue-25-venv/.venv/src/pkg"; (cd "$W/issue-25-venv/.venv/src/pkg"; echo x > x; git add .; git commit -qm local)
+# 產物：主 repo 的 .venv 裡也有同樣的 editable 套件 repo
+git init -q "$R/app/.venv/src/pkg"; blob "$R/app/.venv/lib" 2000000
 # 產物：被 !keep/build/ 取消 ignore 的 build（原始碼）
 mkdir -p "$R/app/keep/build"; echo "int main(){}" > "$R/app/keep/build/main.c"
 # 產物：coverage/ 底下有巢狀 repo
@@ -80,6 +84,8 @@ mkdir -p "$R/app/coverage"; git init -q "$R/app/coverage/inner"; blob "$R/app/co
 cd "$R"; git init -q tools; printf '/build-tools/\n' > tools/.gitignore; blob "$R/tools/build-tools/out" 2000000
 # 產物：規則來自 .git/info/exclude（個人設定）
 git init -q excl; echo out > excl/.git/info/exclude; blob "$R/excl/out" 2000000
+# 26 worktree list 失敗的 repo（config 壞掉），底下有一個真的 linked worktree
+git init -q brk; (cd brk; echo b > b; git add .; git commit -qm b; git worktree add -q -b w ../brk-worktrees/w); echo w > "$R/brk-worktrees/w/note.txt"; printf '[broken\n' >> brk/.git/config
 cd "$R/app"
 # 產物：dotfiles 類 repo（.gitignore 寫 *），底下的 build 不是可重建產物
 cd "$R"; git init -q dotfiles; printf '*\n' > dotfiles/.gitignore; blob "$R/dotfiles/proj/build" 2000000

@@ -9,8 +9,6 @@ export GIT_TERMINAL_PROMPT=0
 
 # 可重建目錄白名單（scan-artifacts / remove-artifacts / worktree 內 ignored 檔判斷共用）
 ARTIFACT_NAMES=" node_modules .venv venv .tox target dist build out .next .nuxt .svelte-kit .turbo .parcel-cache .angular .gradle .pytest_cache .mypy_cache .ruff_cache coverage .terraform DerivedData Pods __pycache__ .DS_Store "
-# 套件管理器的目錄裡出現 .git 是正常的（git 依賴），不當成 nested repo
-PKG_DIR_NAMES=" node_modules .venv venv .tox Pods "
 
 mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo 0; }
 size_kb() { du -sk "$1" 2>/dev/null | cut -f1; }
@@ -20,6 +18,7 @@ human() { # KB → 人看的大小
 realdir() { [ -n "${1:-}" ] || return 0; (cd -- "$1" 2>/dev/null && pwd -P); }  # 目錄的實際路徑；失敗回空字串
 expand_tilde() { case "$1" in "~") echo "$HOME" ;; "~/"*) echo "$HOME/${1#\~/}" ;; *) echo "$1" ;; esac; }
 is_artifact_name() { case "$ARTIFACT_NAMES" in *" $1 "*) return 0 ;; esac; case "$1" in *.pyc) return 0 ;; esac; return 1; }
+strip_slash() { local a=$1; while [ "${#a}" -gt 1 ] && [ "${a%/}" != "$a" ]; do a=${a%/}; done; printf '%s' "$a"; }  # 去掉所有結尾斜線
 has_ctrl() { case "$1" in *$'\n'*|*$'\t'*) return 0 ;; esac; return 1; }  # 路徑含換行／tab 一律拒絕
 
 # conventions 的「明確設定」：專案本專案值（（同預設）取預設欄）> 個人 ~/.agents/conventions.local.md
@@ -44,7 +43,7 @@ base_ref() {
   if [ -n "$b" ] && git -C "$repo" rev-parse -q --verify "refs/remotes/origin/$b" >/dev/null; then echo "origin/$b"; return; fi
   b=$(git -C "$repo" symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)
   if [ -n "$b" ]; then echo "$b"; return; fi
-  for b in main master; do
+  for b in main master develop; do
     git -C "$repo" rev-parse -q --verify "refs/remotes/origin/$b" >/dev/null && { echo "origin/$b"; return; }
   done
   echo ""
@@ -78,13 +77,21 @@ orphan_owner() { # $1=目錄（實際路徑）
   echo ""
 }
 
-# fetch 只更新 refs/remotes/origin/*（明確 refspec，不跟使用者設定的修剪範圍、不動 tag）；不可卡在 prompt
-fetch_repo() { # $1=repo；成功回 0
-  local ssh
+# fetch 只更新 refs/remotes/origin/*（明確 refspec、不動 tag）；回 0 = 成功且 base 確定是最新的
+# remote.origin.fetch 有預設以外的映射（例如 refs/pull/* → refs/remotes/origin/pr/*）時不加 --prune，
+# 免得修剪掉那些 ref；這種情況回 1（fetch 不完整），呼叫端照「fetch 失敗」處理：不刪 branch
+fetch_repo() { # $1=repo
+  local prune=--prune rc
   git -C "$1" remote get-url origin >/dev/null 2>&1 || return 1
-  ssh=$(git -C "$1" config core.sshCommand 2>/dev/null || echo ssh)
-  GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-$ssh -o BatchMode=yes -o ConnectTimeout=10}" \
-    git -C "$1" fetch --quiet --no-tags --prune origin '+refs/heads/*:refs/remotes/origin/*' 2>/dev/null
+  [ "$(git -C "$1" config --get-all remote.origin.fetch 2>/dev/null)" = '+refs/heads/*:refs/remotes/origin/*' ] || prune=""
+  # 使用者沒有自訂任何 ssh 設定時才補 BatchMode／ConnectTimeout（不覆寫使用者的 wrapper 或金鑰設定）
+  if [ -z "${GIT_SSH_COMMAND:-}" ] && [ -z "${GIT_SSH:-}" ] && [ -z "$(git -C "$1" config core.sshCommand 2>/dev/null)" ]; then
+    GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=10" \
+      git -C "$1" fetch --quiet --no-tags $prune origin '+refs/heads/*:refs/remotes/origin/*' </dev/null 2>/dev/null; rc=$?
+  else
+    git -C "$1" fetch --quiet --no-tags $prune origin '+refs/heads/*:refs/remotes/origin/*' </dev/null 2>/dev/null; rc=$?
+  fi
+  [ "$rc" = 0 ] && [ -n "$prune" ]
 }
 
 # head 的內容是否已進 base：ancestor / cherry（rebase merge）/ squash / no / no-base
@@ -130,9 +137,9 @@ is_active() { # $1=path（實際路徑）$2=active_cwds 檔；無法偵測時回
 }
 
 # $1 底下（不含 $1/.git 本身）的 .git：巢狀 repo／worktree，刪 $1 會連它們一起刪；印前幾個
+# 不豁免套件目錄：pip install -e git+… 會在 .venv/src/ 放真的 repo，node_modules 裡也常有人 clone 下來改
 nested_gits() {
-  find "$1" -mindepth 2 \( -name node_modules -o -name .venv -o -name venv -o -name .tox -o -name Pods \) -prune \
-    -o -name .git -print 2>/dev/null | head -3
+  find "$1" -mindepth 2 -name .git -print 2>/dev/null | head -3
 }
 
 # worktree 裡被 ignore、但不在可重建白名單的檔案（.env、*.local、*.log、筆記…）——git worktree remove 會不經確認刪掉它們
@@ -240,8 +247,11 @@ inspect_worktree() {
 
 # worktree list --porcelain → 一行一個 linked worktree：path<TAB>branch<TAB>locked<TAB>head
 # 空欄一律用 - 佔位：IFS=$'\t' 會把連續 tab 合併，空欄會讓後面的欄位錯位
+# git 失敗時回非 0（不能直接 git | awk：pipeline 的 rc 是 awk 的）
 list_worktrees() {
-  git -C "$1" worktree list --porcelain | awk '
+  local out
+  out=$(git -C "$1" worktree list --porcelain 2>/dev/null) || return 1
+  printf '%s\n' "$out" | awk '
     function out() { if (p != "" && n > 1) print p "\t" (b == "" ? "-" : b) "\t" l "\t" (h == "" ? "-" : h) }
     /^worktree /{ out(); p=substr($0,10); b=""; l=0; h=""; n++ }
     /^HEAD /{ h=substr($0,6) }
@@ -258,9 +268,8 @@ artifact_refusal() { # $1=實際路徑 $2=active_cwds 檔
   name=$(basename "$d")
   is_artifact_name "$name" || { echo "名稱不在可重建目錄白名單"; return; }
   [ -e "$d/.git" ] && { echo "本身是 git repo／worktree，可能有未保存的工作"; return; }
-  case "$PKG_DIR_NAMES" in *" $name "*) ;; *)
-    [ -n "$(find "$d" -name .git -print 2>/dev/null | head -1)" ] && { echo "裡面有巢狀的 git repo／worktree，可能有未保存的工作"; return; } ;;
-  esac
+  [ -n "$(nested_gits "$d" | head -1)$(find "$d" -mindepth 1 -maxdepth 1 -name .git 2>/dev/null)" ] \
+    && { echo "裡面有巢狀的 git repo／worktree，可能有未保存的工作"; return; }
   parent=$(dirname "$d")
   top=$(git -C "$parent" rev-parse --show-toplevel 2>/dev/null) || { echo "不在 git repo 內，無法確認可重建"; return; }
   [ "$(realdir "$top")" = "$(realdir "$HOME")" ] && { echo "所屬 repo 是家目錄（dotfiles 類），ignore 規則不代表可重建"; return; }
@@ -270,6 +279,7 @@ artifact_refusal() { # $1=實際路徑 $2=active_cwds 檔
   pat=$(printf '%s' "$v" | sed -E 's/^.*:[0-9]+:(.*)$/\1/')
   case "$src" in /*|.git/*|*/.git/*|'') echo "命中的 ignore 規則來自個人設定（${src:-未知}），不代表專案可重建"; return ;; esac
   [ "$(basename "$src")" = .gitignore ] || { echo "命中的 ignore 規則不是來自 repo 的 .gitignore（${src}）"; return; }
+  git -C "$top" ls-files --error-unmatch -- "$src" >/dev/null 2>&1 || { echo "命中的 .gitignore（${src}）沒有被追蹤，不算專案宣告"; return; }
   case "$pat" in '!'*) echo "命中的是否定規則（${pat}），這個目錄被刻意取消 ignore"; return ;; esac
   last=${pat%/}; last=${last##*/}
   [ "$last" = "$name" ] || { echo "命中的 ignore 規則（${pat}）沒有指名這個目錄，可能是上層目錄或萬用規則"; return; }

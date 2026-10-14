@@ -81,7 +81,8 @@ do_prune() {
 }
 
 do_orphan() {
-  local arg=${1%/} p repo r nested sz
+  local arg p repo r nested sz wl
+  arg=$(strip_slash "$1")
   [ -L "$arg" ] && { refuse "$arg" "是 symlink，不跟著刪"; return; }
   p=$(realdir "$arg"); [ -n "$p" ] || { refuse "$arg" "不是可進入的目錄"; return; }
   [ -d "$p/.git" ] && { refuse "$p" "是獨立的 git repo，不是孤兒目錄"; return; }
@@ -93,7 +94,9 @@ do_orphan() {
   fi
   for r in "$repo" $(sed -n 's|^gitdir: \(.*\)/\.git/worktrees/.*|\1|p' "$p/.git" 2>/dev/null); do
     [ -d "$r/.git" ] || continue
-    if list_worktrees "$r" | cut -f1 | while IFS= read -r wp; do [ "$(realdir "$wp")" = "$p" ] && echo hit; done | grep -q hit; then
+    # 列不出來就無法確認它沒登記，一律拒絕
+    wl=$(list_worktrees "$r") || { refuse "$p" "無法列出 $r 的 worktree，不能確認它是孤兒"; return; }
+    if printf '%s\n' "$wl" | cut -f1 | while IFS= read -r wp; do [ -n "$wp" ] && [ "$(realdir "$wp")" = "$p" ] && echo hit; done | grep -q hit; then
       refuse "$p" "仍登記在 $r 的 worktree list（metadata 斷裂）：先 git -C $r worktree repair $p 再重掃，不要硬刪"; return
     fi
   done
@@ -105,7 +108,8 @@ do_orphan() {
 }
 
 do_worktree() { # $1=flags（plain／allow-untracked／trust-merged 的組合）$2=path
-  local flags=" $1 " arg=${2%/} p repo line br locked head row tier sz tracked untracked merged why extras base_name others del msg
+  local flags=" $1 " arg p repo line br locked head row tier sz tracked untracked merged why extras base_name others del msg cleaned=0
+  arg=$(strip_slash "$2")
   [ -e "$arg" ] || { echo "skip  ${arg}：不存在（殘留 metadata 用 --prune <repo>）"; return; }
   [ -L "$arg" ] && { refuse "$arg" "是 symlink，請傳實際路徑"; return; }
   p=$(realdir "$arg"); [ -n "$p" ] || { refuse "$arg" "不是可進入的目錄"; return; }
@@ -134,9 +138,13 @@ do_worktree() { # $1=flags（plain／allow-untracked／trust-merged 的組合）
     # 只清掉未追蹤／ignored 檔（不加第二個 -f：git clean 不碰巢狀 repo），之後的 remove 不帶 --force，
     # 讓 git 對「檢查之後才出現的追蹤檔修改」做最後一道把關
     run git -C "$p" clean -f -d -x -q || { echo "FAIL  ${p}：git clean 失敗"; refused=$((refused+1)); return; }
+    cleaned=1
   fi
-  run git -C "$repo" worktree remove "$p" \
-    || { echo "FAIL  ${p}：git worktree remove 失敗（檢查之後又有修改，或含 submodule；內容未刪）"; refused=$((refused+1)); return; }
+  if ! run git -C "$repo" worktree remove "$p"; then
+    if [ "$cleaned" = 1 ]; then echo "FAIL  ${p}：git worktree remove 失敗（檢查之後又有修改，或含 submodule）；未追蹤／ignored 檔已清除，worktree 本體與追蹤檔保留"
+    else echo "FAIL  ${p}：git worktree remove 失敗（檢查之後又有修改，或含 submodule）；內容未刪"; fi
+    refused=$((refused+1)); return
+  fi
   msg="ok    ${p}（$(human "$sz")）"
   if [ -n "$br" ]; then
     del=0; why=""
@@ -148,12 +156,21 @@ do_worktree() { # $1=flags（plain／allow-untracked／trust-merged 的組合）
     case "$flags" in *" trust-merged "*) del=1; why="" ;; esac
     base_name=$(base_ref "$repo"); base_name=${base_name#origin/}
     [ "$br" = "$base_name" ] && { del=0; why="是 base 分支"; }
-    if [ "$del" = 1 ] && [ "$dry" = 0 ] && ! base_fresh "$repo"; then
-      case "$flags" in *" trust-merged "*) ;; *) del=0; why="fetch 失敗或 --no-fetch，無法確認 base 是最新的" ;; esac
-    fi
-    others=$(list_worktrees "$repo" | cut -f1,2 | while IFS=$'\t' read -r wp wb; do [ "$wb" = "$br" ] && [ "$(realdir "$wp")" != "$p" ] && echo x; done)
+    case "$flags" in *" trust-merged "*) ;; *)
+      if [ "$del" = 1 ]; then
+        if [ "$fetch" = 0 ]; then del=0; why="--no-fetch，無法確認 base 是最新的"
+        elif [ "$dry" = 0 ] && ! base_fresh "$repo"; then del=0; why="fetch 失敗或不完整，無法確認 base 是最新的"; fi
+      fi ;;
+    esac
+    # update-ref 不像 branch -D 會擋「正在使用的 branch」，自己查（含 main worktree）；dry-run 時這個 worktree 還在，排除它
+    others=$(git -C "$repo" for-each-ref --format='%(worktreepath)' "refs/heads/$br" 2>/dev/null | while IFS= read -r wp; do
+      [ -n "$wp" ] && [ "$(realdir "$wp")" != "$p" ] && echo x; done)
     [ -n "$others" ] && { del=0; why="還有其他 worktree checkout 這個 branch"; }
-    if [ "$del" = 1 ]; then
+    if [ "$del" = 1 ] && [ "$dry" = 1 ]; then
+      case "$flags" in *" trust-merged "*) ;; *) msg="${msg}，local branch $br 將刪（實際執行時需 fetch 成功）"; del=2 ;; esac
+    fi
+    if [ "$del" = 2 ]; then :
+    elif [ "$del" = 1 ]; then
       # 條件式刪除：branch 仍指向檢查當下的 OID 才刪，期間有新 commit 就保留
       if run git -C "$repo" update-ref -d "refs/heads/$br" "$head"; then msg="${msg}，local branch $br 已刪"
       else msg="${msg}，local branch $br 保留（檢查後有變動）"; fi

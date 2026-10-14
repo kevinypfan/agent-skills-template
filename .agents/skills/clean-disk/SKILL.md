@@ -38,7 +38,7 @@ compatibility: Requires git and bash; PR status lookup uses glab (GitLab) or gh 
 1. **根目錄**：依 `.agents/conventions.md`「設定來源與優先序」取 `cleanup_roots`（通常在個人檔 `~/.agents/conventions.local.md`）。user input 有指定就用指定的。都沒有 → 問使用者要掃哪些目錄（建議放專案的總目錄，例如 `~/Project`），並問要不要存進個人檔（照 conventions「寫入規則」只寫該 key）。傳給 script 前把 `~` 展開成絕對路徑（script 也會展開開頭的 `~`，但帶引號傳入時 shell 不會）。
 2. **範圍**：user input 沒說清楚就問，可複選（Claude Code 用 `AskUserQuestion` multiSelect；Codex 在對話中列選項請使用者回覆）：
    - **worktree**（預設勾）：已完成的 worktree ＋ 已併進 base 的 local branch
-   - **可重建產物**：`node_modules`、`.venv`、`target`、`dist`… 只列被 gitignore 的；常見於還要保留的 worktree 與主 repo
+   - **可重建產物**：`node_modules`、`.venv`、`target`、`dist`…，只列「repo 裡被追蹤的 `.gitignore` 直接指名該目錄」的（`node_modules/*` 這類只 ignore 內容的規則、全域 excludes、`.git/info/exclude` 都不算，這些目錄不會出現），而且裡面不能有巢狀 repo；常見於還要保留的 worktree 與主 repo
    - **全域快取**：npm／pnpm／uv／pip／Homebrew／Docker／Xcode 等，只用各工具官方清理指令
 3. 先用 Bash 記下目前可用空間（`df -h <根目錄>`），結尾要算實際釋放多少。
 
@@ -127,10 +127,10 @@ bash .agents/skills/clean-disk/scripts/remove-worktrees.sh \
 bash .agents/skills/clean-disk/scripts/remove-artifacts.sh <path>...
 ```
 
-- 不確定時先加 `--dry-run` 看一遍（兩支 remove script 的 `--dry-run` 放任何位置都生效）。
+- 不確定時先加 `--dry-run` 看一遍（兩支 remove script 的 `--dry-run` 放在 `--` 之前的任何位置都生效；dry-run 不 fetch，branch 的預告會註明「實際執行時需 fetch 成功」）。
 - metadata 斷裂的 worktree 會被拒絕：照理由先 `git worktree repair`，不要改用 `--orphan`。
 - `--allow-untracked` 的做法是先 `git clean -fdx` 清掉未追蹤與 ignored 檔，再用不帶 `--force` 的 `git worktree remove`；檢查之後才出現的追蹤檔修改會讓 remove 失敗（`FAIL`，內容未刪）。
-- remove 會先 fetch 該 repo；fetch 失敗或加了 `--no-fetch` 時一律不刪 local branch（無法確認 base 是最新的）。刪 branch 是條件式的（branch 仍指向檢查當下的 OID 才刪）。
+- remove 會先 fetch 該 repo；fetch 失敗、不完整（repo 有自訂 refspec，為了不修剪它們而沒 prune）或加了 `--no-fetch` 時一律不刪 local branch（無法確認 base 是最新的）。刪 branch 是條件式的（branch 仍指向檢查當下的 OID 才刪）。
 - 回報中「local branch 保留（patch 等價判定…）」的 branch，使用者確認後可自行 `git branch -D`。
 - script 回 `REFUSE` 代表刪除前的重新檢查發現狀態變了（例如 agent 又寫了檔案、又開了 shell）：**不要換旗標或改用 `rm -rf` 硬刪**，把理由轉告使用者。
 - remote branch 一律不動（merge 時平台通常已刪；要刪是對外操作，另外問）。

@@ -17,6 +17,7 @@
 | `address-pr-review` | 處理收到的 review 意見：收集 thread／總結／pre-merge 未通過項目，分級、確認、實作，經 `commit-push-pr` 推上去，回覆或 resolve thread，回報不做的事項 | → `commit-push-pr`；結束可再跑 `review-pr` |
 | `orchestrate-issues` | 主 session 調度多個 issue：分線、用 multiplexer 開多條 agent 線跑 `fix-issue`、監看、PR 關卡、merge、收尾 | 各線 → `fix-issue` → `commit-push-pr` |
 | `ask-agents` | 打包問題給 codex / agy 拿第二意見 | 獨立 |
+| `clean-disk` | 掃根目錄下所有 repo 的 worktree／可重建產物／全域快取，script 分三級（可刪／要看／保留），確認後刪並回報釋放空間 | 獨立；補 `orchestrate-issues` 收尾漏掉的 |
 
 專案差異全在 `.agents/conventions.md`（個人偏好放 `~/.agents/conventions.local.md`；repo 沒有時用全域版的推斷規則，優先序見該檔）；tracker（GitLab / GitHub）差異全在 `_tracker/`；terminal multiplexer（herdr；`none` 時退化成只建 worktree）差異全在 `_multiplexer/`。
 委派角色（scout / runner / reviewer / worker / architect）在 `.agents/roles/`，機制相同、stub 手寫；skill 本文提到派工只寫「派給 `<role>` agent」。

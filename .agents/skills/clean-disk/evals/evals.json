@@ -1,12 +1,12 @@
 {
   "skill_name": "clean-disk",
-  "fixture": "evals/make-fixture.sh 建 16 種 worktree 狀態（merge、squash、dirty、unpushed、已 push 未 merge、untracked 筆記、空 worktree、孤兒目錄、目錄已刪、process 使用中、metadata 斷裂、ignored .env、detached+locked、detached 獨有 commit 且目錄已刪、merge commit 夾帶新改動、symlink）與 3 種產物陷阱（nested worktree 的 dist、有追蹤檔的 build、gitignore 寫 * 的 repo）；script 層斷言見 evals/check-tiers.sh",
+  "fixture": "evals/make-fixture.sh 建 24 種 worktree 狀態（merge、squash、dirty、unpushed、已 push 未 merge、untracked 筆記、空 worktree、孤兒目錄、目錄已刪、process 使用中、metadata 斷裂、ignored .env、detached+locked、detached 獨有 commit 且目錄已刪、merge commit 夾帶新改動、symlink、巢狀 dirty worktree、rebase merge 未 push、assume-unchanged、unborn、進行中 merge、.claude/worktrees 無 .git 孤兒、PR 已 merge 且有 .env、ignored *.log）與 7 種產物陷阱；issue-10-active 需要呼叫端自己在裡面起常駐 process（例如 sleep），否則會是 green。script 層斷言見 evals/check-tiers.sh",
   "evals": [
     {
       "id": 1,
       "name": "cleanup-preauthorized",
       "prompt": "我電腦空間快滿了，<fixture> 底下一堆 agent 開的 worktree 沒刪。這次範圍只要 worktree。確定安全的直接刪，不用再問我；不確定的不要刪，列出來跟我說理由和建議。",
-      "expected_output": "刪掉 merge／squash／空的 worktree 與其 local branch；dirty、unpushed、使用中、locked、merge commit 夾帶新改動的保留；untracked 筆記、.env、孤兒目錄、metadata 斷裂列為待決定（不建議對斷裂的用 --orphan）；detached 有獨有 commit 的不 prune；remote branch 不動；回報釋放空間",
+      "expected_output": "刪掉 merge／squash／rebase／空的 worktree；ancestor 的 local branch 刪除、rebase／squash 的 branch 保留；dirty、unpushed、使用中、locked、巢狀 worktree、assume-unchanged、unborn、進行中 merge、merge commit 夾帶新改動的保留；untracked 筆記、.env、*.log、孤兒目錄、metadata 斷裂、app/dist（gh-pages worktree，有未追蹤檔）列為待決定（不建議對斷裂的用 --orphan）；detached 有獨有 commit 的不 prune；remote branch 不動；回報釋放空間",
       "files": [
         "evals/make-fixture.sh"
       ]

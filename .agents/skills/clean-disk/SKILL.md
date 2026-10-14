@@ -44,10 +44,10 @@ compatibility: Requires git and bash; PR status lookup uses glab (GitLab) or gh 
 
 ## Step 1：掃描
 
-依選到的範圍跑對應 script（各自只讀；根目錄可給多個）。大小用平行 `du` 計算（預設 8 個，環境變數 `CLEAN_DISK_JOBS` 調整）；上百個 worktree 又有大型 `target`／`node_modules` 時仍要幾分鐘，可以派給 `runner` agent 執行，輸出寫進暫存檔再彙總，不要把整份 TSV 讀進對話。
+依選到的範圍跑對應 script（都不刪檔；`scan-worktrees.sh` 會 fetch 更新 `refs/remotes/origin/*`；根目錄可給多個）。大小用平行 `du` 計算（預設 8 個，環境變數 `CLEAN_DISK_JOBS` 調整）；上百個 worktree 又有大型 `target`／`node_modules` 時仍要幾分鐘，可以派給 `runner` agent 執行，輸出寫進暫存檔再彙總，不要把整份 TSV 讀進對話。
 
 ```bash
-bash .agents/skills/clean-disk/scripts/scan-worktrees.sh <根目錄>...   # 會 git fetch --prune；加 --no-fetch 跳過（離線時）
+bash .agents/skills/clean-disk/scripts/scan-worktrees.sh <根目錄>...   # 加 --no-fetch 跳過 fetch（離線時）
 bash .agents/skills/clean-disk/scripts/scan-artifacts.sh <根目錄>...   # 預設只列 ≥ 50 MB；--min-mb N 調整
 bash .agents/skills/clean-disk/scripts/scan-caches.sh
 ```
@@ -56,24 +56,28 @@ bash .agents/skills/clean-disk/scripts/scan-caches.sh
 
 | tier | 條件 | 意義 |
 |---|---|---|
-| red（保留） | 追蹤檔有未 commit 變更；有 commit 沒 push 且沒進 base；有 process 的 cwd 在裡面（agent／shell 還開著；偵測不到 lsof／proc 時全部算）；worktree 被 lock；目錄已不存在、但 detached HEAD 有只被它指著的 commit；任何 git 檢查失敗（status、rev-list…） | 刪了會丟工作或打斷正在跑的東西；檢查不了就當有風險 |
-| yellow（要看） | 已 push 但 base 上找不到等價改動（PR 可能還 open、被 close、或 merge 時改過內容；分支上有 merge commit 時一律算這類）；有未追蹤的非 ignored 檔；有被 ignore 但不在產物白名單的檔（`.env`、`*.local`、筆記——`git worktree remove` 會不經確認刪掉）；孤兒目錄；worktree metadata 斷裂；找不到 base ref | 不會丟 commit，但需要人判斷 |
-| green（可刪） | 內容已併進 base（一般 merge、rebase、squash 都偵測得到），且沒有未追蹤檔、沒有被 ignore 的非產物檔；或目錄已不存在只剩 metadata（有 branch，或 commit 也在其他 ref 上） | 刪掉不會遺失任何東西，隨時能從 base／遠端重建 |
+| red（保留） | 追蹤檔有未 commit 變更；有 assume-unchanged／skip-worktree 的檔案（status 看不到修改）；有 commit 沒 push 且沒進 base；有 process 的 cwd 在裡面（agent／shell 還開著；偵測不到時全部算）；worktree 被 lock；進行中的 rebase／merge／cherry-pick／bisect；裡面有巢狀的 repo／worktree；HEAD 沒有 commit（unborn）；目錄已不存在、但 detached HEAD 有只被它指著的 commit；status、rev-list、ignored 清單等檢查失敗 | 刪了會丟工作或打斷正在跑的東西；檢查不了就當有風險 |
+| yellow（要看） | 已 push 但 base 上找不到等價改動（PR 可能還 open、被 close、或 merge 時改過內容；分支上有 merge commit 時一律算這類）；有未追蹤的非 ignored 檔；有被 ignore 但不在產物白名單的檔（`.env`、`*.local`、`*.log`、筆記——`git worktree remove` 會不經確認刪掉）；孤兒目錄；worktree metadata 斷裂（git 讀不到，歸 yellow 而非 red，因為修好 metadata 就能正常分級）；找不到 base ref | 不會丟 commit，但需要人判斷 |
+| green（可刪） | 內容已併進 base（一般 merge、rebase、squash 都偵測得到），且沒有未追蹤檔、沒有被 ignore 的非產物檔；或目錄已不存在只剩 metadata（有 branch，或 commit 也在其他 ref 上） | 刪掉 worktree 不會遺失任何東西。rebase／squash 是 patch 等價判定（git 比對時忽略 whitespace 與行號），所以只刪 worktree、**保留 local branch** |
+
+TSV 欄位：`tier repo path branch size_kb idle_days tracked untracked unpushed merged upstream extras head reasons`（`extras` = 被 ignore 的非產物檔數，`head` = 檢查當下的 HEAD OID）。
+
+偵測不到的使用中情況：IDE／編輯器開著 worktree 裡的檔案、但沒有任何 process 的 cwd 在裡面時不會被判 red。呈現時對閒置 0–1 天的 green 提醒使用者確認沒有編輯器還開著。
 
 ## Step 2：補 yellow 的資訊
 
-對「已 push 但未進 base」的 yellow 項目，在該項目的 repo 目錄內依 `.agents/skills/_tracker/README.md` 判斷 tracker，執行 **[tracker] 查目前分支的 PR**（以分支名查）：
+對「已 push 但未進 base」的 yellow 項目，**在該 worktree 目錄內**（不是 main repo 目錄，否則「目前分支」會是 main repo 的分支）依 `.agents/skills/_tracker/README.md` 判斷 tracker，執行 **[tracker] 查目前分支的 PR**：
 
-- PR **merged** → 改列為可刪，標註「PR 已 merge（base 上內容與分支不同，可能 merge 時有調整）」；刪除時要帶 `--trust-merged` 才會刪 local branch
+- PR **merged** → 改列為可刪，標註「PR 已 merge（base 上內容與分支不同，可能 merge 時有調整）」；刪除時對該 path 加 `--trust-merged` 才會刪 local branch
 - PR **closed 未 merge** → 仍是 yellow，標註「PR 已關閉未 merge；commit 還在遠端分支上」
 - PR **open** → 改列 red 的「建議保留」，標註「PR 進行中」；worktree 可隨時從遠端分支重建，使用者堅持要刪也可以
-- 查不到 PR／沒有 CLI 或沒登入 → 保持 yellow，標註「查不到 PR」，不要猜
+- 查不到 PR／沒有 CLI 或沒登入 → 保持 yellow，標註「查不到 PR」，不要猜（tracker 的查詢若只找 open 的 PR，merged 的也會落在這裡，照樣不猜）
 
 項目很多時（數十個），先依 repo 分組、只查各組 yellow，不必逐一查 green／red。
 
 metadata 斷裂（常見於 repo 搬過目錄）：先問使用者要不要對所屬 repo 跑 `git worktree repair <path>`（只修正 `.git` 指標，不動內容），修好後重掃那個 repo，它就會得到正常分級。
 
-孤兒目錄：git 已經不認得它，無法判斷有沒有未保存的東西。看一下裡面最近修改的幾個檔（`find <dir> -type f -newer <dir>/.git -not -path '*/node_modules/*' | head`、或 `ls -lt`），把觀察寫進理由。
+孤兒目錄：git 已經不認得它，無法判斷有沒有未保存的東西。用 `ls -lt <dir>` 看裡面最近修改的幾個檔（目錄可能根本沒有 `.git`），把觀察寫進理由。
 
 ## Step 3：呈現與確認
 
@@ -106,11 +110,11 @@ metadata 斷裂（常見於 repo 搬過目錄）：先問使用者要不要對�
 - 產物建議優先刪「所屬 worktree 也要刪的」（會隨 worktree 一起消失，不用另外列）與閒置久的；正在開發的專案的 `node_modules` 刪了要重裝，提醒代價。
 - Docker 的 `docker system prune --volumes` 會刪 volume（可能是資料庫資料），一律單獨確認，不跟其他項目打包。
 
-**確認方式**：user input 已明確授權（例如「安全的直接刪，不用問我」）時，green 視同已確認、直接執行，yellow 仍只列出不刪。否則 green 一次確認整批（允許使用者排除幾個編號）；yellow、產物、快取請使用者回覆要刪的編號。「只看不刪」時到這裡就結束，跳到 Step 5 只回報掃描結果。
+**確認方式**：user input 已明確授權（例如「安全的直接刪，不用問我」）時，**只有 script 判為 green 的 worktree** 視同已確認、直接執行；Step 2 由 PR 狀態升級的項目、yellow、產物、快取仍只列出不刪。否則 green 一次確認整批（允許使用者排除幾個編號）；yellow、產物、快取請使用者回覆要刪的編號。「只看不刪」時到這裡就結束，跳到 Step 5 只回報掃描結果。
 
 ## Step 4：執行
 
-只對使用者確認的項目執行。`remove-worktrees.sh` 的旗標**只套用在緊接的那一個 path**，每個 yellow 依使用者同意的內容各自標記，不要讓一個授權蓋到整批：
+只對使用者確認的項目執行。`remove-worktrees.sh` 的旗標**只套用在緊接的那一個 path**，每個 yellow 依使用者同意的內容各自標記，不要讓一個授權蓋到整批；同一個 path 需要兩種授權時重複寫（`--allow-untracked P --trust-merged P`）：
 
 ```bash
 bash .agents/skills/clean-disk/scripts/remove-worktrees.sh \
@@ -119,12 +123,15 @@ bash .agents/skills/clean-disk/scripts/remove-worktrees.sh \
   --allow-untracked <使用者看過並同意丟掉未追蹤檔／.env 等的 path> \
   --trust-merged <Step 2 查到 PR 已 merge 的 path> \
   --orphan <孤兒目錄> \
-  --prune <有「目錄已不存在」項目的 repo>      # 會先檢查，有 detached 獨有 commit 就整個拒絕
+  --prune <有「目錄已不存在」項目的 repo>      # 會先檢查，有 detached 獨有 commit 或 locked 就整個拒絕
 bash .agents/skills/clean-disk/scripts/remove-artifacts.sh <path>...
 ```
 
 - 不確定時先加 `--dry-run` 看一遍（兩支 remove script 的 `--dry-run` 放任何位置都生效）。
 - metadata 斷裂的 worktree 會被拒絕：照理由先 `git worktree repair`，不要改用 `--orphan`。
+- `--allow-untracked` 的做法是先 `git clean -fdx` 清掉未追蹤與 ignored 檔，再用不帶 `--force` 的 `git worktree remove`；檢查之後才出現的追蹤檔修改會讓 remove 失敗（`FAIL`，內容未刪）。
+- remove 會先 fetch 該 repo；fetch 失敗或加了 `--no-fetch` 時一律不刪 local branch（無法確認 base 是最新的）。刪 branch 是條件式的（branch 仍指向檢查當下的 OID 才刪）。
+- 回報中「local branch 保留（patch 等價判定…）」的 branch，使用者確認後可自行 `git branch -D`。
 - script 回 `REFUSE` 代表刪除前的重新檢查發現狀態變了（例如 agent 又寫了檔案、又開了 shell）：**不要換旗標或改用 `rm -rf` 硬刪**，把理由轉告使用者。
 - remote branch 一律不動（merge 時平台通常已刪；要刪是對外操作，另外問）。
 - 快取：逐項執行使用者確認的官方清理指令（`scan-caches.sh` 的 `clean_command` 欄）。
@@ -135,7 +142,7 @@ bash .agents/skills/clean-disk/scripts/remove-artifacts.sh <path>...
 ## 清理結果
 
 - 釋放：約 <size>（可用空間 <前> → <後>）
-- worktree：移除 <N> 個、local branch 刪除 <M> 個
+- worktree：移除 <N> 個、local branch 刪除 <M> 個、保留 <K> 個（列出保留原因：patch 等價判定／fetch 失敗／是 base 分支）
 - 產物：<N> 個；快取：<清了哪些>
 - 拒絕／失敗：<path — 理由>（沒有就寫「無」）
 - 保留中的 red：<N> 個（主要原因：<例：5 個有沒 push 的 commit>）

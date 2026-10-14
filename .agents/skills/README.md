@@ -24,7 +24,7 @@
 
 ## 寫作規則（標 ✅ 者由 `scripts/check-skill-stubs.sh` 在 pre-commit 強制；其餘人工審）
 
-- ✅ **每份真身開頭必有「先決定照哪一份跑」讓位段**（緊接在 `> This skill should only…` 之後；新 skill 從既有 skill 複製，把 skill 名換掉）。原因：全域安裝時 Claude 的全域 skill 會蓋掉專案同名 skill、Codex 則兩份並列，靠這段讓全域版改讀專案客製版。
+- ✅ **每份真身開頭必有「先決定照哪一份跑」讓位段**（frontmatter 之後；有 `> This skill should only…` 時緊接其後——允許模型自動觸發的 skill（如 `clean-disk`）省略這行；新 skill 從既有 skill 複製，把 skill 名換掉）。原因：全域安裝時 Claude 的全域 skill 會蓋掉專案同名 skill、Codex 則兩份並列，靠這段讓全域版改讀專案客製版。
 - 真身裡的 `.agents/…` 路徑照寫 repo 相對形式即可；讓位段第 2 點已規定「repo 沒有就退到 `~/.agents/…`」，不要自己寫 `~/.agents` 絕對路徑。唯一例外是只存在於家目錄的個人覆寫層 `~/.agents/conventions.local.md`。擴充點 `.agents/extensions/` 則**不退到** `~/.agents`，只看當前 repo 根（見下方「讀擴充點用 canonical 句」）。
 - ✅ 改行為、改 frontmatter 都只改這裡，然後跑 `bash scripts/generate-skill-stubs.sh` 重生 stub（pre-commit 擋不一致）。
 - frontmatter 可含 Claude 擴充欄位（`allowed-tools`、`disable-model-invocation` 等）——Codex 忽略未知欄位，產生器整段複製給 stub。

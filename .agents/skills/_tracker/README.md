@@ -18,6 +18,22 @@ git remote get-url origin
 
 3. 開工前確認 CLI 在 PATH 且已登入（`gh auth status` / `glab auth status`）；沒有就停下來告訴使用者，不要退回 curl 硬打 API。
 
+## 寫入前的敏感資訊 gate
+
+所有把文字寫到 tracker 的動作——建 issue、建 PR、更新 PR 描述、留 PR 總結 comment、在 issue 留言、在 diff 上留 inline comment、回覆 thread、merge PR 的 subject／message、重新打開 issue 的說明——送出前都先過這道 gate。**每個對外的文字欄位都要掃**：title 與 body 分開送的，兩個都掃。issue 與 PR 會被別人讀、被索引、被通知信轉寄，刪掉也收不回；log、測試輸出、curl 指令、設定檔片段最容易夾帶 token 與密碼。
+
+scanner 路徑：repo 根有 `.agents/skills/_tracker/scan-secrets.sh` 就用它，沒有就用 `~/.agents/skills/_tracker/scan-secrets.sh`（全域安裝）。下文寫 `<scanner>`。
+
+1. **先縮小**：log、trace、測試輸出只貼能支持結論的那幾行，不整包貼。
+2. **每個欄位寫進各自的暫存檔**（放 scratchpad 或 `mktemp`）。掃的是收件人會看到的原文；需要包成 JSON payload 的動作（如 GitLab 的 inline comment），先掃原文，過了再包。
+3. **掃描**：`bash <scanner> check < <暫存檔>`
+   - exit 0 → 可以送出。
+   - exit 1 → `bash <scanner> redact < <暫存檔> > <遮罩檔>`，再對遮罩檔跑一次 `check`，必須是 0 才改送遮罩檔。用一行告訴使用者命中的類別與筆數（stderr 的內容；**不要貼原值**）。使用者看過後明確說某處是誤判，才可以把那一處還原後送出。review 或說明裡需要引用測試用的假值時，改寫成不觸發規則的描述，不要為了引用而要求還原。
+   - exit 2 或遮罩後仍命中 → 停下，不送出，回報原因。
+4. **送出的必須就是掃過的那份**：掃完到送出之間不再修改這個檔；改了就重掃。有檔案版參數就用（如 `gh` 的 `--body-file`），沒有就照 tracker 檔的寫法從同一個檔讀進參數（如 `"$(cat <檔>)"`）。
+
+`scan-secrets.sh` 偵測的是長得像 secret 的字串：private key、各家 token、JWT、URL 帳密、`Cookie`／`Authorization` 標頭、`password=` 這類賦值。`$NAME`、`${name}`、`${{ secrets.X }}`、`<your-token>`、`%NAME%` 這類參照與佔位符不算；為了不放過以符號開頭的真密碼，小寫的 `$name` 會被遮。exit 0 只代表「規則沒命中」，不代表內容一定沒有 secret：跳脫過的 key、YAML block scalar、非 ASCII 或少於 4 字元的值都不在偵測範圍內。專案特有的個資格式（身分證、手機、內部帳號）也不在預設規則內，需要時在專案版的 `scan-secrets.sh` 補規則，並同步 `.agents/skills/_tracker/evals/check-scan-secrets.sh`。
+
 ## 動作表（A 表）
 
 | 動作 | GitLab（`glab`） | GitHub（`gh`） | 備註 |

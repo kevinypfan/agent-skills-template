@@ -9,7 +9,7 @@ Claude Code 與 Codex **共用**的骨架：一組 issue-flow skill（GitLab / G
 ├── conventions.md          ← 複製後唯一要改的檔（分支、label、測試指令…）
 ├── skills/
 │   ├── README.md           ← 寫作規則
-│   ├── _tracker/           ← glab / gh 指令對照（非 skill）
+│   ├── _tracker/           ← glab / gh 指令對照、寫入前 secret 掃描（非 skill）
 │   ├── _multiplexer/       ← herdr 等 terminal multiplexer 指令對照（非 skill）
 │   └── create-issue/  create-worktree/  fix-issue/  commit-push-pr/  review-pr/  address-pr-review/  orchestrate-issues/  ask-agents/  clean-disk/
 ├── extensions/             ← 擴充點說明與範例（專案在自己 repo 放 context / review / pre-merge.md）

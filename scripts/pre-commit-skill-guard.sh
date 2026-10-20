@@ -16,4 +16,8 @@ if git diff --cached --name-only | grep -qE "$guard"; then
   if grep -qE '^\.agents/roles/(worktree-fingerprint\.sh|evals/check-fingerprint\.sh)$' "$t/staged"; then
     bash .agents/roles/evals/check-fingerprint.sh || exit 1
   fi
+  # 動到 secret 掃描器就跑它的斷言測試
+  if grep -qE '^\.agents/skills/_tracker/(scan-secrets\.sh|evals/check-scan-secrets\.sh)$' "$t/staged"; then
+    bash .agents/skills/_tracker/evals/check-scan-secrets.sh || exit 1
+  fi
 fi

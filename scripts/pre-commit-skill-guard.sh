@@ -12,4 +12,8 @@ if git diff --cached --name-only | grep -qE "$guard"; then
     echo "✗ 下列守門檔既已 stage 又有未 stage 的變更，請補 stage 或 stash 後再 commit："; echo "$both" | sed 's/^/    /'; exit 1
   fi
   bash scripts/check-skill-stubs.sh
+  # 動到內容指紋 script 就跑它的斷言測試
+  if grep -qE '^\.agents/roles/(worktree-fingerprint\.sh|evals/check-fingerprint\.sh)$' "$t/staged"; then
+    bash .agents/roles/evals/check-fingerprint.sh || exit 1
+  fi
 fi

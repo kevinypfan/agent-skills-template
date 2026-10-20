@@ -60,6 +60,8 @@ clean 'git@github.com:owner/repo.git'
 clean "commit $(rep f 40)"
 clean 'pip install scikit-learn && sk-learn 不是 key'
 clean '使用 `secret_assignment` 規則'
+clean '`Authorization: Bearer ` 這類前綴保留'
+clean 'Authorization: Bearer'
 
 # 原值不能出現在 stderr（只報類別與筆數）
 err=$(printf 'password=hunter22\n' | bash "$scan" check 2>&1 >/dev/null)

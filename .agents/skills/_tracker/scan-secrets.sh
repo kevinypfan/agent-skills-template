@@ -36,7 +36,7 @@ my @rules = (
   [api_key           => qr/()\b((?:sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{35}))/],
   [jwt               => qr/()\b(eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,})/],
   [url_credential    => qr{(\b[a-z][a-z0-9+.-]*://[^\s:/@]+:)([^\s@/]+)(?=@)}i],
-  [auth_header       => qr/((?i:proxy-authorization|authorization)["\x27]?\s*[:=]\s*["\x27]?(?i:bearer|basic|token|digest)\s+)([^\s"\x27,;]+)/],
+  [auth_header       => qr/((?i:proxy-authorization|authorization)["\x27]?\s*[:=]\s*["\x27]?(?i:bearer|basic|token|digest)\s+)((?:${V}){8,})/],
   [bearer            => qr/(\b(?i:bearer)\s+)([A-Za-z0-9._~+\/-]{16,}=*)/],
   [secret_assignment => qr/((?i:\b[A-Za-z0-9_.-]*(?:password|passwd|pwd|secret|token|api[_-]?key|apikey|access[_-]?key|private[_-]?key|client[_-]?secret))["\x27]?\s*[:=]\s*["\x27]?)((?:${V}){4,})/],
 );

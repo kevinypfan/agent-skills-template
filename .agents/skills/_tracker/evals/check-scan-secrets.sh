@@ -86,6 +86,10 @@ clean 'PWD=/Users/me/project'
 clean 'OLDPWD=/tmp'
 clean 'password: your-password'
 clean 'Cookie: <session-cookie>'
+clean 'cookie: req.cookies'
+clean 'cookie: required for login'
+clean 'Settings.api_token = Settings.API_TOKEN'
+hit secret_assignment 'password=my.secret' my.secret
 
 # 原值不能出現在 stderr（只報類別與筆數）
 err=$(printf 'password=hunter22\n' | bash "$scan" check 2>&1 >/dev/null)

@@ -34,7 +34,8 @@ sub safe {
 sub code_expr {
   my $v = shift;
   return $v =~ /^[A-Za-z_\$][\w\$]*(?:\.[A-Za-z_\$][\w\$]*)*\(/       # parseToken(input)
-      || $v =~ /^[A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*)+$/;                 # process.env.TOKEN、config.secret
+      || $v =~ /^(?:process\.env|os\.environ|env|config|settings|self|this|ctx|req|request|secrets|vars)(?:\.[A-Za-z_]\w*)+$/   # process.env.TOKEN、config.secret
+      || $v =~ /^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*\.[A-Z][A-Z0-9_]*$/;    # Settings.API_TOKEN；my.secret 這種含點號的真值不豁免
 }
 
 # 每條規則：[類別, (前綴)(值), 略過的前綴]；只遮罩值。順序由具體到一般，後面的規則看到的是已遮罩的文字
@@ -51,7 +52,7 @@ my @rules = (
   [api_key           => qr/()\b((?:sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}|(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}|AIza[0-9A-Za-z_-]{35}))/],
   [jwt               => qr/()\b(eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,})/],
   [url_credential    => qr{(\b[a-z][a-z0-9+.-]*://[^\s:/@]*:)([^\s@/]+)(?=@)}i],
-  [cookie            => qr/((?i:\bset-cookie|\bcookie)[ \t]*:[ \t]*)([^\r\n]+)/],
+  [cookie            => qr/((?i:\bset-cookie|\bcookie)[ \t]*:[ \t]*)([^\r\n=]*=[^\r\n]+)/],   # 值要有 name=value，散文與程式碼不算
   [auth_header       => qr/((?i:proxy-authorization|authorization)["\x27]?[ \t]*[:=][ \t]*["\x27]?[A-Za-z][A-Za-z0-9-]*[ \t]+)((?:${V}){8,})/],
   [bearer            => qr/(\b(?i:bearer)[ \t]+)([A-Za-z0-9._~+\/-]{16,}=*)/],
   [registry_auth     => qr/("auth"[ \t]*:[ \t]*")([A-Za-z0-9+\/=]{8,})(?=")/],

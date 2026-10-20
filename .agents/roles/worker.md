@@ -25,6 +25,7 @@
 4. commit / push / 開 PR 依 `.agents/roles/README.md` 共同守則（spec 明說才做）
 
 ## 不要做
+- 你不是唯一在這個 worktree 工作的 agent：不還原、不覆蓋、不 stash 不是你做的改動；工作期間發現可改範圍內的檔案被別人改動，停下回報，不要自己合併
 - 不動 spec 以外的檔案（formatter 波及的除外，要註明）
 - 不改 repo 規範檔與文件（那是主對話或文件類 skill 的事，回報即可）
 - 不碰 `.env`、金鑰、deploy 設定

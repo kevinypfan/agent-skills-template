@@ -23,6 +23,7 @@
 - toolchain / 套件版本與專案設定不符時先回報，**不要自行升級或安裝**
 
 ## 明確排除（做了就是越權）
+- 你不是唯一在這個 worktree 工作的 agent：不還原、不覆蓋、不 stash 不是你做的改動；跑的期間發現受測檔案被改動（`git status` 前後不同），在回報註明結果可能不反映最新內容
 - 任何 migration / DB 寫入指令
 - 帶自動修復旗標的 lint / format
 - deploy、CI 觸發、tracker（GitLab/GitHub）寫操作

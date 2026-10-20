@@ -10,7 +10,7 @@
 #     - 開頭必有「先決定照哪一份跑」讓位段（全域安裝時讓位給專案客製版；見 .agents/skills/README.md）
 #  3. agent（若有 .agents/roles/）：roles / .claude/agents / .codex/agents 三集合一致；description 非空且兩邊逐字相同；
 #     stub 本文逐字 canonical；Claude tools 含 Edit/Write ⟺ Codex workspace-write（例外見 WRITE_SANDBOX_EXCEPTIONS）；
-#     純讀角色本體含唯讀 Bash 守則句；global/AGENT-ROLES.md（全域派工政策）要點名每個角色
+#     純讀角色本體含唯讀 Bash 守則句；會寫檔／跑建置的角色本體含「不是唯一 agent」守則句；global/AGENT-ROLES.md（全域派工政策）要點名每個角色
 #  4. 擴充點（見 .agents/extensions/README.md；掃描範圍＝skill 真身 SKILL.md 與 .agents/roles/*.md，不含各 README）：
 #     (a) 引用的 .agents/extensions/<name>.md 名稱必須在 EXTENSION_POINTS 內；(b) 引用擴充點的檔必含「擴充點」與「不退到 `~/.agents`」；
 #     (c) extensions/README.md 每個名稱有「## <name>」且 examples/<name>.md 存在；(d) extensions/ 內清單外的 .md（非三個合法檔名、README.md、examples/）→ ✗；
@@ -69,6 +69,7 @@ done
 for f in README.md $(for m in $MULTIPLEXER_CLIS; do echo "$m.md"; done); do
   [ -f ".agents/skills/_multiplexer/$f" ] || { echo "✗ 缺 .agents/skills/_multiplexer/$f"; fail=1; }
 done
+[ -d .agents/roles ] && { for f in worktree-fingerprint.sh evals/check-fingerprint.sh; do [ -f ".agents/roles/$f" ] || { echo "✗ 缺 .agents/roles/$f（runner 與 fix-issue 的內容指紋）"; fail=1; }; done; }
 [ -f .agents/conventions.md ] || { echo "✗ 缺 .agents/conventions.md（issue-flow skill 的專案設定）"; fail=1; }
 # ---- agent roles（沒有 .agents/roles/ 就整段跳過）----
 n_roles=0
@@ -103,6 +104,11 @@ if [ -d .agents/roles ]; then
       *" $r "*) { [ "$cl_w" = 0 ] && [ "$cx_w" = 1 ]; } || { echo "✗ agent $r: 例外清單預期 Claude 唯讀 tools + Codex workspace-write，現況 claude=${cl_w} codex=${cx_w}"; fail=1; } ;;
       *) [ "$cl_w" = "$cx_w" ] || { echo "✗ agent $r: 讀寫權限兩邊不一致（Claude tools 含 Edit/Write=${cl_w}，Codex workspace-write=${cx_w}）；刻意差異請加進 WRITE_SANDBOX_EXCEPTIONS 並更新 .agents/roles/README.md"; fail=1; } ;;
     esac
+    # 會寫檔或跑建置的角色（Codex workspace-write）本體必須有「不是唯一 agent」守則句：主線派工後不等、會同時動同一個 worktree
+    if [ "$cx_w" = 1 ]; then
+      grep -qF '你不是唯一在這個 worktree 工作的 agent：不還原、不覆蓋、不 stash 不是你做的改動' "${body_f}" \
+        || { echo "✗ role $r: ${body_f} 缺共同守則句「你不是唯一在這個 worktree 工作的 agent：不還原、不覆蓋、不 stash 不是你做的改動」（見 .agents/roles/README.md）"; fail=1; }
+    fi
     # 純讀角色（兩邊都唯讀）本體必須有守則句——這是唯讀的真正防線，不是 tools 白名單
     if [ "$cl_w" = 0 ] && [ "$cx_w" = 0 ]; then
       grep -q 'Bash 只用於唯讀指令；不重導向寫檔、不 `sed -i`、不 `git add`' "${body_f}" \

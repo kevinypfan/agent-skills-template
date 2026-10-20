@@ -9,7 +9,7 @@
 
 ## 內容指紋（測試前後各一次）
 - 開跑前與跑完後各執行 `bash .agents/roles/worktree-fingerprint.sh`（repo 沒有就用 `~/.agents/roles/` 同名檔），兩個值都寫進回報
-- 前後不同 → 這次結果**作廢**：回報開頭寫「結果作廢：受測內容在測試期間改變」，附前後 `git status --short` 的差異，把未 ignore 的建置產物與 source 分開列（產物造成的差異請主對話判斷是否補 `.gitignore`）
+- 前後不同 → 回報開頭寫「指紋不一致」，附前後 `git status --short` 的差異，把未 ignore 的建置產物與 source 分開列；結果有沒有效由主對話判斷（只有產物變動時，主對話會以測試後的指紋為準）
 - 前後相同才算有效結果；主對話 commit 前會再算一次比對
 
 ## 回報格式（固定）

@@ -73,7 +73,7 @@ scout 找、runner 跑、reviewer 挑、worker 做、architect 判（見 `.agent
 - **交辦範圍內的檔案，主線在等待期間不改**——runner 測到一半檔案變了，結果就不可信；worker 改到一半主線也改，會互相覆蓋。真的要改就先等它回來。
 - 依賴結果的下一步（commit、push、宣告完成）一定等結果回來、主線判讀後才做。
 - **決定能否 commit 的那次驗證**，派出前所有 writer（主線、worker）都要停手；主線不改檔只約束主線自己，平行的 worker 仍可能改到受測的共用檔。
-- **綠燈要綁定內容**：runner 回報測試前後的內容指紋（`.agents/roles/worktree-fingerprint.sh`），前後不同的結果作廢。主線 commit 前再算一次，與綠燈那次相同才能用；之後又改了檔（含 commit 前 self-review 的修正），就重派驗證。
+- **綠燈要綁定內容**：runner 回報測試前後的內容指紋（`.agents/roles/worktree-fingerprint.sh`）。前後不同時看 runner 列的變動路徑：有 source → 結果作廢、重派；只有測試產生的建置產物 → 結果有效、以測試後的指紋為準，並提醒使用者補 `.gitignore`（不這樣判，產物每跑一次都會變，會無限重派）。主線 commit 前再算一次，與綠燈那次相同才能用；之後又改了檔（含 commit 前 self-review 的修正），就重派驗證。
 - 平行派多個 worker 時，可改範圍必須互斥；切不開就不要平行。formatter 也只能對各自範圍內的檔案跑；要整包格式化，等所有 writer 停手後由單一 agent 做。
 - 同一個建置輸出目錄（`target/`、`dist/`）不要同時跑兩個 build。
 - runtime 的 sub agent 呼叫會阻塞（沒有背景執行）時，照常等結果即可；上面的邊界照樣適用。

@@ -69,7 +69,7 @@ done
 for f in README.md $(for m in $MULTIPLEXER_CLIS; do echo "$m.md"; done); do
   [ -f ".agents/skills/_multiplexer/$f" ] || { echo "✗ 缺 .agents/skills/_multiplexer/$f"; fail=1; }
 done
-[ -d .agents/roles ] && { [ -f .agents/roles/worktree-fingerprint.sh ] || { echo "✗ 缺 .agents/roles/worktree-fingerprint.sh（runner 與 fix-issue 的內容指紋）"; fail=1; }; }
+[ -d .agents/roles ] && { for f in worktree-fingerprint.sh evals/check-fingerprint.sh; do [ -f ".agents/roles/$f" ] || { echo "✗ 缺 .agents/roles/$f（runner 與 fix-issue 的內容指紋）"; fail=1; }; done; }
 [ -f .agents/conventions.md ] || { echo "✗ 缺 .agents/conventions.md（issue-flow skill 的專案設定）"; fail=1; }
 # ---- agent roles（沒有 .agents/roles/ 就整段跳過）----
 n_roles=0

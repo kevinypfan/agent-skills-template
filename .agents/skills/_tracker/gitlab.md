@@ -1,6 +1,7 @@
 # GitLab（`glab`）指令細節
 
 前提：`glab auth status` 通過；在 repo 目錄下執行（`glab` 由 `origin` 推專案）。
+寫入動作（建 issue／PR、更新描述、各種 comment 與回覆）送出前，內文先過 `.agents/skills/_tracker/README.md`「寫入前的敏感資訊 gate」。
 
 ## 看 issue
 

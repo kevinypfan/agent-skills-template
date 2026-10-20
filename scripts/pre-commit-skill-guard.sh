@@ -12,4 +12,8 @@ if git diff --cached --name-only | grep -qE "$guard"; then
     echo "✗ 下列守門檔既已 stage 又有未 stage 的變更，請補 stage 或 stash 後再 commit："; echo "$both" | sed 's/^/    /'; exit 1
   fi
   bash scripts/check-skill-stubs.sh
+  # 動到 secret 掃描器就跑它的斷言測試
+  if grep -qE '^\.agents/skills/_tracker/(scan-secrets\.sh|evals/check-scan-secrets\.sh)$' "$t/staged"; then
+    bash .agents/skills/_tracker/evals/check-scan-secrets.sh || exit 1
+  fi
 fi

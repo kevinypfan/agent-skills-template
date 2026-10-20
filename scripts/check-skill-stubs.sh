@@ -62,7 +62,7 @@ for real in .agents/skills/*/SKILL.md; do
     || { echo "✗ $s: 真身缺「## 先決定照哪一份跑」讓位段（或 skill 名 / 路徑規則句不符；範本見 .agents/skills/README.md）"; fail=1; }
 done
 # _tracker 必備檔
-for f in README.md gitlab.md github.md; do
+for f in README.md gitlab.md github.md scan-secrets.sh evals/check-scan-secrets.sh; do
   [ -f ".agents/skills/_tracker/$f" ] || { echo "✗ 缺 .agents/skills/_tracker/$f"; fail=1; }
 done
 # _multiplexer 必備檔：README + MULTIPLEXER_CLIS 每個一份

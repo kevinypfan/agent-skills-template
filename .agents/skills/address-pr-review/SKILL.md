@@ -124,7 +124,7 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 1. 讀相關檔案，照計畫逐項修改，只動計畫內的範圍。新邏輯補測試；**不可刪 assertion 讓測試過**。
 2. 驗證派給 `runner` agent、不等：指令是 conventions 的 `test_command`（能縮到改動範圍就縮，並註明）與 `lint_command`；**未定義就先問使用者要跑什麼**，不要自己假設。用一行告訴使用者後派出，交辦照 `.agents/roles/README.md`「交辦模板」（可改範圍寫「不改檔」）。等待期間主線逐條對照計畫 self-review diff、草擬 Step 7 的回覆內容；**不改受測的檔案**，要改等 runner 回來。沒有 sub agent 可用時，主線自己跑。
-3. 失敗：主線判讀後修正、重派，反覆超過兩輪仍不過就停下來回報失敗內容與判斷，不要推上去。
+3. 失敗：主線判讀後修正、重派，反覆超過兩輪仍不過就停下來回報失敗內容與判斷，不要推上去。結果標「作廢」就重派；綠燈後執行 `bash .agents/roles/worktree-fingerprint.sh`，必須等於 runner 回報的指紋才進 Step 6，不同就重派。
 4. 實作中發現某條 finding 其實不該改或做法不同 → 停下告知使用者，更新該條處置，不默默略過。
 
 ## Step 6: 推上去

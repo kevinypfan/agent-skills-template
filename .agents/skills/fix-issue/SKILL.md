@@ -86,7 +86,8 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 1. **修改程式碼**
 2. **派驗證、不等**：決定要跑的指令——conventions 的 `test_command` 與 `lint_command`（依改動路徑選對應那列；未定義就先問使用者要跑什麼，問完再派）。用一行告訴使用者後，派給 `runner` agent 跑，交辦照 `.agents/roles/README.md`「交辦模板」（可改範圍寫「不改檔」）。
 3. **等待期間主線做不依賴結果的事**：對照 Step 2 計畫 self-review 自己的 diff（範圍是否超出、有沒有漏改的第二處）、草擬 commit message 與 PR 描述要點。**不改受測的檔案**；self-review 發現要改，等 runner 回來再改，改完重派。
-4. **判讀結果**：runner 回報失敗由主線判讀並修正，修完重派；反覆超過兩輪仍不過就停下來回報。沒有 sub agent 可用時，主線自己跑同樣的指令。
+4. **判讀結果**：runner 回報失敗由主線判讀並修正，修完重派；反覆超過兩輪仍不過就停下來回報。結果標「作廢」（受測內容在測試期間改變）就重派。沒有 sub agent 可用時，主線自己跑同樣的指令。
+5. **確認綠燈測的就是要 commit 的內容**：執行 `bash .agents/roles/worktree-fingerprint.sh`，必須等於 runner 回報的指紋；不同就重派。進 Step 4 後若 `commit-push-pr` 的自審又改了檔，回到本步重派驗證。
 
 ### Step 4: 呼叫 skill `commit-push-pr`
 

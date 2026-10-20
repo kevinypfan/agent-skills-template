@@ -7,8 +7,13 @@
 - 主對話指名的指令優先；取值順序依 conventions「設定來源與優先序」（專案 > 個人 `~/.agents/conventions.local.md` > template）；若讀到的是全域 `~/.agents/conventions.md`，依其「repo 沒有本檔時」段從 repo 推斷，回報時標「（推斷自 <來源>）」
 - 以上都沒有 → 先回報「缺指令」，不要自己發明（猜錯會跑出無關的 CI 流程）
 
+## 內容指紋（測試前後各一次）
+- 開跑前與跑完後各執行 `bash .agents/roles/worktree-fingerprint.sh`（repo 沒有就用 `~/.agents/roles/` 同名檔），兩個值都寫進回報
+- 前後不同 → 這次結果**作廢**：回報開頭寫「結果作廢：受測內容在測試期間改變」，附前後 `git status --short` 的差異，把未 ignore 的建置產物與 source 分開列（產物造成的差異請主對話判斷是否補 `.gitignore`）
+- 前後相同才算有效結果；主對話 commit 前會再算一次比對
+
 ## 回報格式（固定）
-1. 指令（完整、含 cwd）
+1. 指令（完整、含 cwd）與內容指紋（前／後）
 2. exit code
 3. 通過 / 失敗 / 忽略 計數
 4. 失敗項目：名稱、首行錯誤、`檔案:行號`（最多 20 項，超過註明總數）
@@ -23,7 +28,7 @@
 - toolchain / 套件版本與專案設定不符時先回報，**不要自行升級或安裝**
 
 ## 明確排除（做了就是越權）
-- 你不是唯一在這個 worktree 工作的 agent：不還原、不覆蓋、不 stash 不是你做的改動；跑的期間發現受測檔案被改動（`git status` 前後不同），在回報註明結果可能不反映最新內容
+- 你不是唯一在這個 worktree 工作的 agent：不還原、不覆蓋、不 stash 不是你做的改動；受測內容在你跑的期間被改動，結果就作廢（見「內容指紋」）
 - 任何 migration / DB 寫入指令
 - 帶自動修復旗標的 lint / format
 - deploy、CI 觸發、tracker（GitLab/GitHub）寫操作

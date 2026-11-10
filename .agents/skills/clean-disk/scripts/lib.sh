@@ -148,7 +148,12 @@ ignored_extras() { # $1=worktree；一行一個，失敗只印 __ERR__
   out=$(git --no-optional-locks -C "$1" status --porcelain=v1 --ignored=matching -unormal 2>/dev/null) || { echo __ERR__; return; }
   printf '%s\n' "$out" | sed -n 's/^!! //p' | while IFS= read -r f; do
     b=${f%/}; b=${b##*/}
-    is_artifact_name "$b" || echo "$f"
+    # 白名單只套用在目錄（結尾 /）；一般檔案只有 .DS_Store、*.pyc 算產物——被 ignore 的檔案剛好叫 out、build 不能當成可重建
+    case "$f" in
+      */) is_artifact_name "$b" && continue ;;
+      *) case "$b" in .DS_Store|*.pyc) continue ;; esac ;;
+    esac
+    printf '%s\n' "$f"   # 不用 echo：檔名叫 -n、-e 時會被當成選項吞掉
   done
 }
 

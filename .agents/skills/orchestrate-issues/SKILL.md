@@ -216,7 +216,7 @@ You **MUST** consider the user input before proceeding. The user input may conta
 每條 PR 都 merge（或使用者決定放棄）的線：
 
 1. 確認 worktree 沒有未 commit 的追蹤檔變更（`git -C <worktree> status --porcelain`）；有就回報，不強制移除。
-   再跑 `bash .agents/skills/clean-disk/scripts/ignored-extras.sh <worktree>`，檢查被 ignore、但不是可重建產物的檔案（`.env`、`*.local`、筆記…）。`status --porcelain` 看不到這些檔案，移除 worktree 時卻會不經確認刪掉。exit 1 → 列出檔案問使用者要保留（先搬走）還是丟掉；exit 2（不是 worktree 根目錄或讀取失敗）→ 回報，不移除。multiplexer 要求先停 agent 再檢查時（見該 multiplexer 檔「關 session 並移除 worktree」），兩項檢查都照該檔的順序做。
+   再跑 `bash .agents/skills/clean-disk/scripts/ignored-extras.sh <worktree>`，檢查 `status --porcelain` 看不到、移除 worktree 時卻會不經確認刪掉的東西：被 ignore 但不是可重建產物的檔案（`.env`、`*.local`、筆記…）、巢狀 repo（`nested-repo:`）、assume-unchanged／skip-worktree 的修改（`hidden-change:`）。exit 1 → 列出清單問使用者，每一項保留（先搬到 worktree 外）或丟掉；使用者決定後，只刪除或搬走清單上的那些路徑，再重跑一次，**exit 0 才移除**。exit 2（不是 linked worktree 的根目錄、是主 checkout、或讀取失敗）→ 回報，不移除。multiplexer 要求先停 agent 再檢查時（見該 multiplexer 檔「關 session 並移除 worktree」），兩項檢查都照該檔的順序做。
 2. [multiplexer] 關 session 並移除 worktree。只剩 untracked 的 venv／build 產物時才用強制移除；worktree 已不在時改用 [multiplexer] 關 session（worktree 已移除時）。
 3. `delete_branch_after_merge` 為 `true` → 刪遠端與本地分支（疊分支的後續 PR 已改 base 之後才刪）：
 

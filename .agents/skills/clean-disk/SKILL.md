@@ -31,7 +31,7 @@ compatibility: Requires git and bash; PR status lookup uses glab (GitLab) or gh 
 
 - **判斷交給 script**（`.agents/skills/clean-disk/scripts/`）：未 commit 變更、沒 push 的 commit、是否已併進 base（含 squash／rebase merge）、有沒有 process 還在裡面——這些是機械性檢查，script 做得快又一致，不要自己用一連串 git 指令重新推導。
 - **刪除也交給 script**：`remove-*.sh` 在刪之前**重新檢查**一次，因為掃描到刪除之間 agent 可能又寫了檔案；red 一律拒絕。不要繞過它直接 `rm -rf` worktree——那會留下殘缺的 git metadata，而且跳過了最後一道檢查。
-- **可重建白名單只有一份**（`.agents/skills/clean-disk/scripts/lib.sh` 的 `ARTIFACT_NAMES`）：`.agents/skills/clean-disk/scripts/ignored-extras.sh` 也用它，在 `orchestrate-issues` 收尾時列出被 ignore 的非產物檔。改白名單會同時影響兩邊。
+- **可重建白名單只有一份**（`.agents/skills/clean-disk/scripts/lib.sh` 的 `ARTIFACT_NAMES`）：`.agents/skills/clean-disk/scripts/ignored-extras.sh` 也用它，在 `orchestrate-issues` 收尾時列出被 ignore 的非產物檔。白名單只套用在目錄，一般檔案只有 `.DS_Store`、`*.pyc` 算產物。改白名單會同時影響兩邊。
 - **你負責的是**：選範圍、對 yellow 項目查 PR 狀態補資訊、用人看得懂的方式呈現、取得確認、回報結果。
 
 ## Step 0：讀設定與選範圍

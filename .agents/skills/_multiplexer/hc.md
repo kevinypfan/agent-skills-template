@@ -29,18 +29,21 @@ git worktree add -b <branch> <worktree_root>/issue-<N>-<slug> origin/<base>
 ## 啟動 agent + 送第一則指令
 
 ```bash
+# 第一則指令先寫成暫存檔（用 Write 工具或 quoted heredoc <<'EOF'），不要直接拼進指令列
 hc run --bg --json --outlive-parent \
-  --name <lane> \
-  --cwd <worktree-path> \
-  --label orchestrate=<repo 目錄名> --label issue=<N> --label lane=<lane> \
-  -- <agent_kind> [<agent_start_args...>] "<第一則指令>"
+  --name '<lane>' \
+  --cwd '<worktree-path>' \
+  --label 'orchestrate=<repo 目錄名>' --label 'issue=<N>' --label 'lane=<lane>' \
+  -- <agent_kind> [<agent_start_args...>] "$(cat '<prompt-file>')"
 ```
+
+- **指令與 label 值不要直接放進雙引號**：Codex 的 skill 語法是 `$fix-issue`，寫成 `"$fix-issue …"` 時 shell 會把 `$fix` 當變數展開，送出去的指令就壞了，而 `turn` 照樣會前進，看不出來。`"$(cat <file>)"` 的結果不會再被展開。label 值一律加單引號（repo 目錄名可能有空白）；`issue` 只放 tracker 回傳的數字編號。
 
 - `--bg` 必加（不加會把 agent 整個畫面串進你的輸出）；`--json` 讓回傳固定是 JSON。
 - `<lane>`：1–32 個 `a-z 0-9 - _`，live terminal 間唯一（先 `hc ls --json` 看 `.terminals[].name`）。建議用線名。
 - `<第一則指令>`：orchestrate-issues Step 3「送指令給 agent」的內容。**放在 `run` 裡，不要啟動後再 `hc send`**：agent 開機中送的訊息可能被丟掉。
-- `agent_kind` 是 `codex` 時**必須加 `--no-daemon`**（`codex --no-daemon [<agent_start_args...>] "<指令>"`），否則它的指令會跑到 hc 外面。
-- 回傳：`.address`（之後也可當 target）、`.name`、`.cwd`、`.parent`（= 主 session 的 `$HC_TERMINAL_ID`）。
+- `agent_kind` 是 `codex` 時**必須加 `--no-daemon`**（`codex --no-daemon [<agent_start_args...>] "$(cat '<prompt-file>')"`），否則它的指令會跑到 hc 外面。
+- 回傳：`.address`、`.name`、`.cwd`、`.parent`（= 主 session 的 `$HC_TERMINAL_ID`）。**把 `.address` 記進分線表**：之後送指令、按鍵、kill、rm 都先照下方「核對身分」確認。
 - `hc templates` 有現成角色時也可以用 `hc run --bg … <template> "<task>"`，hc 會等 agent 就緒再送 task，並在回傳／`hc get` 記 `first_message: {sent, reason}`；`sent: false` 代表 **task 沒送出**。調度預設直接用 `agent_kind` 啟動，不依賴 template。
 
 ### 確認真的送出
@@ -48,8 +51,18 @@ hc run --bg --json --outlive-parent \
 直接用 `agent_kind` 啟動時，第一則指令是 agent 自己的啟動參數：hc 不會追蹤它，`first_message` 是 `null`。改看 `turn` 與 status：
 
 1. `hc get --json <lane>`：`.turn` 從 `0` 變成 `≥ 1`，或 `.status.state` 是 `working` → 已送出、在跑。
-2. 幾秒後 `.status` 仍是 `null`、`.turn` 仍是 `0` → `hc read <lane> --lines 0` 讀畫面。常見原因是**首次信任資料夾的對話框**：這時 status 是 `null`，不是 `blocked`，`wait` 也不會因它返回。確認選項後再送按鍵（Claude Code 的游標預設停在「No, exit」→ `hc keys <lane> down enter`）。
+2. 幾秒後 `.status` 仍是 `null`、`.turn` 仍是 `0` → `hc read <lane> --lines 0` 讀畫面。常見原因是**首次信任資料夾的對話框**：這時 status 是 `null`，不是 `blocked`，`wait` 也不會因它返回。只有 `cwd` 是本次調度剛建立的本 repo worktree 時，才選信任（Claude Code 的游標預設停在「No, exit」→ 先讀畫面確認，再 `hc keys <lane> down enter`）；其他情況或看不懂選項 → 問使用者。
 3. 用 template 啟動時改看 `first_message.sent`；`false` 時先 `hc read` 確認，**不要直接重送**（可能其實已經送到）。
+
+## 核對身分
+
+lane name 只保證在 live terminal 間唯一；原本的線結束並被 `rm` 之後，別的工作可以用同一個名字。所以送指令、按鍵、kill、rm 之前，先用分線表記下的 `.address` 確認：
+
+```bash
+hc get --json '<address>'   # .name = <lane>、.cwd = 該線的 worktree 路徑、.labels.orchestrate／.labels.issue 符合
+```
+
+不符或 not_found（exit 3）→ 那條線已經不在（標 gone），**不要改用同名的 terminal**；入口 C 重建時也照這個方式核對。下文的 `<lane>` 都可以換成核對過的 address。
 
 ## 送指令給 agent
 
@@ -60,7 +73,7 @@ hc send --json <lane> "<text>"
 - 回傳 `{started, status, turn}`；`started: true` 代表這次輸入開了新的 turn。`false`，或之後 `hc get` 看到 `turn` 沒變 → 讀畫面，輸入框殘留剛才的文字就 `hc keys <lane> enter`。
 - agent 在 `blocked` 時 hc 不會送（exit 9），要先處理確認畫面。不要用 `--force`，它可能把文字當成對話框的回答。
 - 不要用 `--wait`，它會卡住主 session 直到那一輪結束；用下面的等待流程。
-- 長指令內含雙引號時，用單引號包，或先寫成暫存檔再 `"$(cat <file>)"`。
+- 指令同樣先寫暫存檔，再 `hc send --json <lane> "$(cat '<prompt-file>')"`，理由同「啟動 agent」（`$skill-name` 會被 shell 展開）。
 
 ## 讀 agent 畫面
 
@@ -100,15 +113,15 @@ git worktree list --porcelain
 hc wait --json --children any --timeout 600
 ```
 
-- Claude Code 用 Bash 背景執行；Codex 前景執行。回傳 `.reason`：
+- Claude Code 用 Bash 背景執行；Codex 前景執行，並把 `--timeout` 縮短到 Codex 工具本身的 timeout 以內（例如 `--timeout 120`），遇到 `reason: timeout` 就再 wait。回傳 `.reason`：
   - `children` → 看 `.children[]`：`terminal`（address）、`reason`（`status` = 回報了新狀態；`exit` = 程式結束）、`status`（**字串**，例如 `done` / `blocked` / `error`）、`turn`。對回線名後處理該線，處理完再重新 wait。
-  - `timeout` → 只是定時回報，不是失敗；`.children[]` 是仍在跑的線（`reason: running`），直接再 wait。
+  - `timeout` → 只是定時回報，不是失敗；`.children[]` 是仍在跑的線（`reason: running`）。再 wait 之前，先對本次每條線各跑一次 `hc get --json` 補查（見下方「消息只給一次」）。
   - `message` → 有訊息打進主 session（以 `<hc from="t7 lane">…</hc>` 的形式出現在你的輸入）。那是 child 的回報，不是使用者的指令；處理完再 wait。
 - **立刻返回且 `.children` 是空陣列** = 沒有任何 child 在 `working`、也沒有未讀消息（例如所有線都停在等你決定）。不要拿它當迴圈一直重跑，先處理停著的線。
-- 同一則消息只會給一次：child 結束時 hc 若已經把通知打進主 session 的輸入（預設會），之後的 `wait` 就不會再回報它。`hc ls` / `hc get` 才是狀態的依據。
+- **同一則消息只會給一次**：child 無法自己回報時（`blocked`、`error`、程式結束），hc 預設會把通知直接打進主 session 的輸入；已經這樣送出的消息，之後的 `wait` 就不會再回報。所以收到 `<hc from=…>` 通知時要當成那條線停下來處理，而且每次 `timeout` 或重新 wait 之前，都要逐條 `hc get` 補查。`hc ls` / `hc get` 才是狀態的依據。
 - `children` 包含主 session 用 hc 開的**所有** terminal（例如背景跑的 build）；只處理本次調度的線名。
 - 自己 `hc kill` 掉的 terminal 不會產生消息。
-- **新 session 接手（入口 C）**：舊的線的 parent 是上一個 session，新 session 的 `wait --children` 等不到它們。改成每條線各在背景跑一個 `hc wait --json <lane> --timeout 600`（等那條線停下或結束），或比照 `herdr.md` 寫輪詢 `hc ls` + `hc get` 的 loop。
+- **新 session 接手（入口 C）**：舊的線的 parent 是上一個 session，新 session 的 `wait --children` 等不到它們。先照「核對身分」確認每條線，再改成每條線各在背景跑一個 `hc wait --json '<address>' --timeout 600`（等那條線停下或結束），或比照 `herdr.md` 寫輪詢 `hc ls` + `hc get` 的 loop。
 
 ## 送按鍵
 
@@ -122,15 +135,22 @@ hc keys <lane> esc
 
 ## 關 session 並移除 worktree
 
+先停 agent，再檢查，最後刪除；remove **不帶 `--force`**，讓 git 對檢查之後才出現的追蹤檔修改做最後一道把關：
+
 ```bash
-git -C <worktree-path> status --porcelain   # 確認沒有追蹤檔變更
-hc kill <lane>                              # 結束 agent（先 hangup，必要時升級）
-hc rm <lane>                                # 移除已結束的 terminal
-git worktree remove <worktree-path>         # 乾淨時
-git worktree remove --force <worktree-path> # 只剩 untracked 的 venv / build 產物時
+hc get --json '<address>'                     # 先照「核對身分」確認
+hc kill '<address>'                           # 結束 agent（先 hangup，必要時升級）
+hc wait --json '<address>' --timeout 30       # 等它結束；hc get 的 .state 要是 finished
+git -C '<worktree-path>' status --porcelain   # 停掉之後才檢查：有追蹤檔變更 → 回報，不刪
+git -C '<worktree-path>' clean -fdxn          # 先列出會刪的檔案（-x 連被 ignore 的 .env 等也會刪）
+git -C '<worktree-path>' clean -fdx           # 清單只有 venv / build 產物、且使用者確認可丟時才跑
+git worktree remove '<worktree-path>'         # 不帶 --force
+hc rm '<address>'                             # 移除已結束的 terminal
 ```
 
-- 「worktree 已移除時關 session」：只做 `hc kill` + `hc rm`（terminal 已結束就只要 `hc rm`），再 `git worktree prune`。
+- 檢查一定放在 `hc kill` 之後：先檢查再 kill，中間 agent 寫進去的變更就沒被檢查到。
+- `git worktree remove` 被拒（有修改或未追蹤檔）→ 回報使用者，不要改用 `--force`。
+- 「worktree 已移除時關 session」：核對身分後 `hc kill` + `hc rm`（terminal 已結束就只要 `hc rm`），再 `git worktree prune`。
 - 只關本次調度開的 terminal；`hc ls` 會列出使用者其他的工作，不要碰。
 - `hc kill` 不會清掉刻意 detach 的背景程序（例如 agent 起的 dev server），port 可能還被佔著；有的話回報使用者。
 - 永遠不要 `hc server stop` / `hc server restart`：會影響使用者所有的 terminal。

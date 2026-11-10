@@ -31,15 +31,15 @@ else echo none; fi
 | 取主 session 位置 | `$HERDR_WORKSPACE_ID` | `$HC_TERMINAL_ID` | herdr：建 worktree 時掛在哪個 workspace 下；hc：各線的 parent，也是 child 回報的對象 |
 | 建 worktree + 獨立 session | `herdr worktree create --workspace <ws> --branch <b> --base origin/<base> --path <path> --label <label> --no-focus` | `git worktree add -b <b> <path> origin/<base>` | herdr 回傳 session（workspace）id 與空 shell pane id；hc 只建 worktree，session 在啟動 agent 時產生 |
 | 在既有 worktree 開 session | `herdr worktree open --workspace <ws> --path <path> --no-focus` | （worktree 已在就略過，直接啟動 agent） | 分支已存在、或重建調度時補開 |
-| 在 session 啟動 agent | `herdr agent start <name> --kind <agent_kind> --pane <pane> [-- <agent_start_args>]` | `hc run --bg --outlive-parent --name <name> --cwd <path> --label … -- <agent_kind> [<agent_start_args>] "<第一則指令>"` | name 是之後所有動作的 target。hc 把啟動與送第一則指令合一，見 `hc.md` |
+| 在 session 啟動 agent | `herdr agent start <name> --kind <agent_kind> --pane <pane> [-- <agent_start_args>]` | `hc run --bg --json --outlive-parent --name <name> --cwd <path> --label … -- <agent_kind> [<agent_start_args>] "$(cat <prompt-file>)"` | name 是之後所有動作的 target。hc 把啟動與送第一則指令合一，見 `hc.md` |
 | 送指令給 agent | `herdr agent prompt <name> "<text>"` | `hc send <name> "<text>"` | 送完要確認真的開始工作，見各 multiplexer 檔 |
 | 讀 agent 畫面 | `herdr agent read <name> --source recent-unwrapped --lines N` | `hc read <name> --lines N` | `blocked` 時 herdr 改 `--source visible`、hc 改 `--lines 0`（只讀可見畫面） |
 | 查狀態 | `herdr agent get <name>` / `herdr agent list` | `hc get --json <name>` | 狀態值見下方「狀態語意」 |
 | 列出所有 agent／session | `herdr agent list`、`herdr workspace list`、`herdr worktree list --workspace <ws>` | `hc ls --json [--label orchestrate=<repo>]`、`git worktree list --porcelain` | 重建調度狀態用：agent 名稱、cwd、狀態；session 與其 worktree 分支 |
 | 等任一條線停下 | 輪詢 `herdr agent list` 的 loop（見 `herdr.md`） | `hc wait --children any` | 背景執行，有線離開 `working` 就回報 |
 | 送按鍵（選單、Enter、Esc） | `herdr agent send-keys <name> enter\|esc\|down\|up` | `hc keys <name> enter\|esc\|down\|up` | |
-| 關 session 並移除 worktree | `herdr worktree remove --workspace <ws> [--force]` | `hc kill <name>` + `hc rm <name>` + `git worktree remove [--force] <path>` | |
-| 關 session（worktree 已移除時） | `herdr workspace close <ws>` | `hc kill <name>` + `hc rm <name>` | |
+| 關 session 並移除 worktree | `herdr worktree remove --workspace <ws> [--force]` | `hc kill <address>` → 檢查 → `git worktree remove <path>`（不帶 `--force`）→ `hc rm <address>` | hc 要先核對身分、先停再檢查，見 `hc.md` |
+| 關 session（worktree 已移除時） | `herdr workspace close <ws>` | `hc kill <address>` + `hc rm <address>` | |
 
 ## 狀態語意（各 multiplexer 共用）
 

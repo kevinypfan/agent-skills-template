@@ -19,7 +19,7 @@
 | `ask-agents` | 打包問題給 codex / agy 拿第二意見 | 獨立 |
 | `clean-disk` | 掃根目錄下所有 repo 的 worktree／可重建產物／全域快取，script 分三級（可刪／要看／保留），確認後刪並回報釋放空間 | 獨立；補 `orchestrate-issues` 收尾漏掉的 |
 
-專案差異全在 `.agents/conventions.md`（個人偏好放 `~/.agents/conventions.local.md`；repo 沒有時用全域版的推斷規則，優先序見該檔）；tracker（GitLab / GitHub）差異全在 `_tracker/`；terminal multiplexer（herdr；`none` 時退化成只建 worktree）差異全在 `_multiplexer/`。
+專案差異全在 `.agents/conventions.md`（個人偏好放 `~/.agents/conventions.local.md`；repo 沒有時用全域版的推斷規則，優先序見該檔）；tracker（GitLab / GitHub）差異全在 `_tracker/`；terminal multiplexer（herdr、hc；`none` 時退化成只建 worktree）差異全在 `_multiplexer/`。
 委派角色（scout / runner / reviewer / worker / architect）在 `.agents/roles/`，機制相同、stub 手寫；skill 本文提到派工只寫「派給 `<role>` agent」。
 
 ## 寫作規則（標 ✅ 者由 `scripts/check-skill-stubs.sh` 在 pre-commit 強制；其餘人工審）

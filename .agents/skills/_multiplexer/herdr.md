@@ -122,10 +122,12 @@ herdr 先驗證所有 key 再寫入；選單操作前一定先 `--source visible
 
 ```bash
 git -C <worktree-path> status --porcelain        # 確認沒有追蹤檔變更
+bash .agents/skills/clean-disk/scripts/ignored-extras.sh <worktree-path>   # 被 ignore 的非產物檔（.env 等）：exit 1 → 列出來問使用者；exit 2 → 回報，不刪
 herdr worktree remove --workspace <workspace_id>          # 乾淨時
 herdr worktree remove --workspace <workspace_id> --force  # 只剩 untracked 的 venv / build 產物時
 herdr workspace close <workspace_id>                      # worktree 已先被移除、只剩 session 時
 ```
 
+- `herdr worktree remove`（帶不帶 `--force` 都一樣）會刪掉被 ignore 的檔案，而 `status --porcelain` 看不到它們；所以 `ignored-extras.sh` 沒回 exit 0 之前不移除。script 路徑：repo 沒有就用 `~/.agents/skills/clean-disk/scripts/ignored-extras.sh`。
 - 只關本次調度建立的 workspace；不要關使用者或其他 session 的。
 - 永遠不要 `herdr server stop`。

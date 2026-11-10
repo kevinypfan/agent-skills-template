@@ -144,6 +144,7 @@ hc kill '<address>'                           # 結束 agent（先 hangup，必�
 hc wait --json '<address>' --timeout 30       # 等它結束；hc get 的 .state 要是 finished
 git -C '<worktree-path>' rev-parse --show-toplevel   # 必須等於該線的 worktree 路徑，且不是主 checkout；不符就停下
 git -C '<worktree-path>' status --porcelain   # 停掉之後才檢查：有追蹤檔變更 → 回報，不刪
+bash .agents/skills/clean-disk/scripts/ignored-extras.sh '<worktree-path>'   # 被 ignore 的非產物檔（.env 等）：exit 1 → 列出來問使用者；exit 2 → 回報，不刪
 git -C '<worktree-path>' clean -fdxn          # 先列出會刪的檔案（-x 連被 ignore 的 .env 等也會刪）
 git -C '<worktree-path>' clean -fdx           # 清單只有 venv / build 產物、且使用者確認可丟時才跑
 git worktree remove '<worktree-path>'         # 不帶 --force
@@ -153,6 +154,7 @@ hc rm '<address>'                             # 移除已結束的 terminal
 - 檢查一定放在 `hc kill` 之後：先檢查再 kill，中間 agent 寫進去的變更就沒被檢查到。
 - `rev-parse --show-toplevel` 的核對不能省：`git -C ''`（路徑沒代換到）會退回目前目錄，`git clean -fdx` 就會清到主 checkout 裡被 ignore 的檔案。
 - `git worktree remove` 被拒（有修改或未追蹤檔）→ 回報使用者，不要改用 `--force`。
+- `status --porcelain` 看不到被 ignore 的檔案，但 `git clean -fdx` 與 `git worktree remove` 都會刪掉它們；所以 `ignored-extras.sh` 沒回 exit 0 之前不清、不刪。script 路徑：repo 沒有就用 `~/.agents/skills/clean-disk/scripts/ignored-extras.sh`。
 - 「worktree 已移除時關 session」：核對身分後 `hc kill` + `hc rm`（terminal 已結束就只要 `hc rm`），再 `git worktree prune`。
 - 只關本次調度開的 terminal；`hc ls` 會列出使用者其他的工作，不要碰。
 - `hc kill` 不會清掉刻意 detach 的背景程序（例如 agent 起的 dev server），port 可能還被佔著；有的話回報使用者。

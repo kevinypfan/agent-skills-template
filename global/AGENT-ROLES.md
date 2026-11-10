@@ -20,7 +20,7 @@ scout 找、runner 跑、reviewer 挑、worker 做、architect 判（見 `~/.age
 
 **臨時開 agent session 委派**（使用者請你用 terminal multiplexer 開新 session／tab 把任務丟過去，當下 session 繼續做別的事）：
 - `agent_kind` 與 `agent_start_args` 照 conventions 取值，優先序同 `.agents/conventions.md`：專案 > `~/.agents/conventions.local.md` > 預設。啟動時一定要帶 `agent_start_args`，沒帶會落回 agent 預設的權限模式，跑到一半停下來等確認。
-- 指令照 `.agents/skills/_multiplexer/<multiplexer>.md`的「啟動 agent」與「送指令給 agent」（repo 沒有就用 `~/.agents/skills/_multiplexer/`；用哪個 multiplexer 依該目錄 README 判斷）。包括：第一則任務怎麼送（hc 在啟動時一起帶，herdr 是啟動後再 prompt）、prompt 先寫成暫存檔再傳、Codex 在 hc 要加 `--no-daemon`、首次信任資料夾的對話框要讀畫面處理。
+- 指令照 `.agents/skills/_multiplexer/<multiplexer>.md`的「啟動 agent」與「送指令給 agent」（repo 沒有就用 `~/.agents/skills/_multiplexer/`；用哪個 multiplexer 依該目錄 README 判斷）。包括：第一則任務怎麼送（hc 在啟動時一起帶，herdr 是啟動後再 prompt）、prompt 先寫成暫存檔再傳、Codex 要加 `--no-daemon`（hc、herdr 都是）、首次信任資料夾的對話框要讀畫面處理。
 - 開完讀一次畫面，確認權限模式符合 `agent_start_args`（例如 Claude Code 狀態列顯示 `bypass permissions on`）。不符就關掉重開，不要在錯的模式下繼續丟任務。
 
 **不要派**：已知檔案的單點查詢、一兩行的改動、需要當下對話脈絡才判斷得出來的問題——sub agent 拿不到這段對話，把背景重打一遍比自己做還慢，而且它只回摘要、細節會遺失。

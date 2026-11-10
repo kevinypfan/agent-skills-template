@@ -38,7 +38,7 @@ else echo none; fi
 | 列出所有 agent／session | `herdr agent list`、`herdr workspace list`、`herdr worktree list --workspace <ws>` | `hc ls --json [--label orchestrate=<repo>]`、`git worktree list --porcelain` | 重建調度狀態用：agent 名稱、cwd、狀態；session 與其 worktree 分支 |
 | 等任一條線停下 | 輪詢 `herdr agent list` 的 loop（見 `herdr.md`） | `hc wait --children any` | 背景執行，有線離開 `working` 就回報 |
 | 送按鍵（選單、Enter、Esc） | `herdr agent send-keys <name> enter\|esc\|down\|up` | `hc keys <name> enter\|esc\|down\|up` | |
-| 關 session 並移除 worktree | `herdr worktree remove --workspace <ws> [--force]` | `hc kill <address>` → 檢查 → `git worktree remove <path>`（不帶 `--force`）→ `hc rm <address>` | hc 要先核對身分、先停再檢查，見 `hc.md` |
+| 關 session 並移除 worktree | `herdr worktree remove --workspace <ws> [--force]` | `hc interrupt`（Codex 再送 `/stop`）→ `hc kill <address>` → 確認沒有殘留 process → 檢查 → `git worktree remove <path>`（不帶 `--force`）→ `hc rm <address>` | hc 要先核對身分、先停再檢查，見 `hc.md` |
 | 關 session（worktree 已移除時） | `herdr workspace close <ws>` | `hc kill <address>` + `hc rm <address>` | |
 
 ## 狀態語意（各 multiplexer 共用）

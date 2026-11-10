@@ -6,7 +6,7 @@
 #     - 附屬檔不用 ../ 或裸 assets|references|scripts|templates/（stub 轉跳後 cwd 是 repo 根）
 #     - 呼叫其他 skill 不寫 Claude slash 語法（起行的「/name …」或反引號包住的「`/name`」）、不並列 per-tool 語法
 #     - 不硬編 tracker CLI（glab / gh）——動作名寫「[tracker] …」，指令只放 .agents/skills/_tracker/
-#     - 不含 multiplexer CLI 名（herdr…）——動作名寫「[multiplexer] …」，指令只放 .agents/skills/_multiplexer/
+#     - 不含 multiplexer CLI 名（herdr、hc…）——動作名寫「[multiplexer] …」，指令只放 .agents/skills/_multiplexer/
 #     - 開頭必有「先決定照哪一份跑」讓位段（全域安裝時讓位給專案客製版；見 .agents/skills/README.md）
 #  3. agent（若有 .agents/roles/）：roles / .claude/agents / .codex/agents 三集合一致；description 非空且兩邊逐字相同；
 #     stub 本文逐字 canonical；Claude tools 含 Edit/Write ⟺ Codex workspace-write（例外見 WRITE_SANDBOX_EXCEPTIONS）；
@@ -49,7 +49,7 @@ if hits=$(grep -nE '(^|[^a-zA-Z`])(glab|gh) (issue|mr|pr|api|auth|ci|run|workflo
   echo "✗ 共用真身硬編 tracker 指令（改寫成「[tracker] 動作名」，指令放 .agents/skills/_tracker/<tracker>.md）："; echo "$hits" | sed 's/^/    /'; fail=1
 fi
 # multiplexer CLI 名連說明文字都不准出現（compatibility 行例外）；新增 multiplexer 時把 CLI 名加進 MULTIPLEXER_CLIS
-MULTIPLEXER_CLIS="herdr"
+MULTIPLEXER_CLIS="herdr hc"
 if hits=$(grep -niwE "$(echo "$MULTIPLEXER_CLIS" | tr ' ' '|')" .agents/skills/*/SKILL.md | grep -v '^[^:]*:[0-9]*:compatibility:'); then
   echo "✗ 共用真身出現 multiplexer CLI 名（改寫成「[multiplexer] 動作名」，指令放 .agents/skills/_multiplexer/<multiplexer>.md）："; echo "$hits" | sed 's/^/    /'; fail=1
 fi

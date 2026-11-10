@@ -29,6 +29,9 @@ elif [ -d /proc/self ]; then
     p=${c#/proc/}; p=${p%/cwd}
     [ -O "/proc/$p" ] || continue   # 只看自己 UID 的 process（與 lsof 分支的 -u 一致）；讀不到別人的 cwd 是常態
     if ! w=$(readlink "$c" 2>/dev/null); then
+      # zombie 已經結束、只是還沒被回收，cwd 本來就讀不到，不會再寫檔。狀態欄在 stat 最後一個 ')' 之後（指令名可能含空白或括號）
+      st=$(sed 's/.*) //' "/proc/$p/stat" 2>/dev/null | cut -d' ' -f1)
+      [ "$st" = Z ] && continue
       [ -e "/proc/$p" ] && { echo "__UNREADABLE__ $p"; continue; }   # process 還在卻讀不到 cwd
       continue                                                        # 讀的當下已經結束
     fi

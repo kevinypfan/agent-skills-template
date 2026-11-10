@@ -158,7 +158,7 @@ hc rm '<address>'                             # 移除已結束的 terminal
 ```
 
 - 檢查一定放在 `hc kill` 之後：先檢查再 kill，中間 agent 寫進去的變更就沒被檢查到。
-- `hc kill` 收不掉 agent 已經在跑的指令：Codex 會把每個指令放進獨立的 process group，terminal 被掛斷後，指令變成孤兒程序繼續跑，還可能在 worktree 裡寫檔（加了 `--no-daemon` 也一樣）。所以 kill 之前先 interrupt（Codex 再加 `/stop`，並等它處理完），kill 之後跑 `active-in.sh`。
+- `hc kill` 收不掉 agent 已經在跑的指令：Codex 會把每個指令放進獨立的 process group，terminal 被掛斷後，指令變成孤兒程序繼續跑，還可能在 worktree 裡寫檔（加了 `--no-daemon` 也一樣）。Claude Code 不會：實測（2.1.322）它的前景與背景指令在 `hc interrupt`／`hc kill` 後都會一起結束，所以 `/stop` 只給 Codex；`active-in.sh` 仍照跑，當成保險。所以 kill 之前先 interrupt（Codex 再加 `/stop`，並等它處理完），kill 之後跑 `active-in.sh`。
   - 主 session 自己的 shell 要先離開 worktree，否則也會被列出來。
   - exit 1：列出 pid 與指令名問使用者。確認是這條線留下的，kill 之前**再跑一次** `active-in.sh`，只 kill 仍在清單上、指令名相同的 pid（避免 pid 被重新分配後殺錯），然後重跑到 exit 0。
   - exit 0 只代表「沒有觀察到 cwd 在 worktree 裡的 process」，不是保證：先 `cd` 到別處、再用絕對路徑寫進 worktree 的 process 抓不到。agent 刻意起的背景服務（dev server、watcher）要由這條線自己停掉，不能只靠這個檢查。

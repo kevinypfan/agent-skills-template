@@ -72,6 +72,7 @@ done
 [ -d .agents/roles ] && { for f in worktree-fingerprint.sh evals/check-fingerprint.sh; do [ -f ".agents/roles/$f" ] || { echo "✗ 缺 .agents/roles/$f（runner 與 fix-issue 的內容指紋）"; fail=1; }; done; }
 # orchestrate-issues 收尾與 _multiplexer 引用的 clean-disk 檢查 script
 [ -f .agents/skills/clean-disk/scripts/ignored-extras.sh ] || { echo "✗ 缺 .agents/skills/clean-disk/scripts/ignored-extras.sh（orchestrate-issues 收尾用）"; fail=1; }
+[ -f .agents/skills/clean-disk/scripts/active-in.sh ] || { echo "✗ 缺 .agents/skills/clean-disk/scripts/active-in.sh（_multiplexer/hc.md 收尾用）"; fail=1; }
 [ -f .agents/conventions.md ] || { echo "✗ 缺 .agents/conventions.md（issue-flow skill 的專案設定）"; fail=1; }
 # ---- agent roles（沒有 .agents/roles/ 就整段跳過）----
 n_roles=0

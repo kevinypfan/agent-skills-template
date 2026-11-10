@@ -42,7 +42,7 @@ hc run --bg --json --outlive-parent \
 - `--bg` 必加（不加會把 agent 整個畫面串進你的輸出）；`--json` 讓回傳固定是 JSON。
 - `<lane>`：1–32 個 `a-z 0-9 - _`，live terminal 間唯一（先 `hc ls --json` 看 `.terminals[].name`）。建議用線名。
 - `<第一則指令>`：orchestrate-issues Step 3「送指令給 agent」的內容。**放在 `run` 裡，不要啟動後再 `hc send`**：agent 開機中送的訊息可能被丟掉。
-- `agent_kind` 是 `codex` 時**必須加 `--no-daemon`**（`codex --no-daemon [<agent_start_args...>] "$(cat '<prompt-file>')"`），否則它的指令會跑到 hc 外面。
+- `agent_kind` 是 `codex` 時**必須加 `--no-daemon`**（`codex --no-daemon [<agent_start_args...>] "$(cat '<prompt-file>')"`）。不加時，只要本機的共用 daemon（`codex app-server`）在跑，Codex 執行的指令就會是 daemon 的子程序，不在 hc terminal 底下，`hc kill` 之後也會繼續跑（codex-cli 0.163 實測）。帶 `-c`、`--enable`、`--disable`、`--search` 也會讓它退回不用 daemon 的模式（畫面上有 warning），但這是副作用，不能拿來代替 `--no-daemon`。
 - 回傳：`.address`、`.name`、`.cwd`、`.parent`（= 主 session 的 `$HC_TERMINAL_ID`）。**把 `.address` 記進分線表**：之後送指令、按鍵、kill、rm 都先照下方「核對身分」確認。
 - `hc templates` 有現成角色時也可以用 `hc run --bg … <template> "<task>"`，hc 會等 agent 就緒再送 task，並在回傳／`hc get` 記 `first_message: {sent, reason}`；`sent: false` 代表 **task 沒送出**。調度預設直接用 `agent_kind` 啟動，不依賴 template。
 
@@ -140,18 +140,30 @@ hc keys <lane> esc
 
 ```bash
 hc get --json '<address>'                     # 先照「核對身分」確認
+hc interrupt '<address>'                      # 停掉正在跑的這一輪
+hc send --json '<address>' '/stop'            # 只有 Codex：interrupt 後它的指令會轉成背景 terminal 繼續跑，/stop 才會關掉
+hc wait --json '<address>' --timeout 30       # 只有 Codex：等 /stop 處理完（status 回到 idle），再 hc read --lines 0 確認畫面沒有「background terminal running」才往下
 hc kill '<address>'                           # 結束 agent（先 hangup，必要時升級）
 hc wait --json '<address>' --timeout 30       # 等它結束；hc get 的 .state 要是 finished
+bash .agents/skills/clean-disk/scripts/active-in.sh '<worktree-path>'   # 還有 process 的 cwd 在 worktree 裡：exit 1 → 列出來問使用者；exit 2 → 回報，不刪
 git -C '<worktree-path>' rev-parse --show-toplevel   # 必須等於該線的 worktree 路徑，且不是主 checkout；不符就停下
 git -C '<worktree-path>' status --porcelain   # 停掉之後才檢查：有追蹤檔變更 → 回報，不刪
 bash .agents/skills/clean-disk/scripts/ignored-extras.sh '<worktree-path>'   # 被 ignore 的非產物檔、巢狀 repo、隱藏修改：exit 1 → 照 orchestrate Step 6 處理後重跑；exit 2 → 回報，不刪
 git -C '<worktree-path>' clean -fdxn          # 先列出會刪的檔案（-x 連被 ignore 的 .env 等也會刪）
 git -C '<worktree-path>' clean -fdx           # 清單只有 venv / build 產物、且使用者確認可丟時才跑
+bash .agents/skills/clean-disk/scripts/active-in.sh '<worktree-path>'      # 移除前再跑一次這兩個檢查，縮短窗口；都要回 exit 0
+bash .agents/skills/clean-disk/scripts/ignored-extras.sh '<worktree-path>'
 git worktree remove '<worktree-path>'         # 不帶 --force
 hc rm '<address>'                             # 移除已結束的 terminal
 ```
 
 - 檢查一定放在 `hc kill` 之後：先檢查再 kill，中間 agent 寫進去的變更就沒被檢查到。
+- `hc kill` 收不掉 agent 已經在跑的指令：Codex 會把每個指令放進獨立的 process group，terminal 被掛斷後，指令變成孤兒程序繼續跑，還可能在 worktree 裡寫檔（加了 `--no-daemon` 也一樣）。所以 kill 之前先 interrupt（Codex 再加 `/stop`，並等它處理完），kill 之後跑 `active-in.sh`。
+  - 主 session 自己的 shell 要先離開 worktree，否則也會被列出來。
+  - exit 1：列出 pid 與指令名問使用者。確認是這條線留下的，kill 之前**再跑一次** `active-in.sh`，只 kill 仍在清單上、指令名相同的 pid（避免 pid 被重新分配後殺錯），然後重跑到 exit 0。
+  - exit 0 只代表「沒有觀察到 cwd 在 worktree 裡的 process」，不是保證：先 `cd` 到別處、再用絕對路徑寫進 worktree 的 process 抓不到。agent 刻意起的背景服務（dev server、watcher）要由這條線自己停掉，不能只靠這個檢查。
+  - 檢查到 `git worktree remove` 之間仍有窗口（中間可能還在等使用者確認），所以移除前再跑一次 `active-in.sh` 與 `ignored-extras.sh`；窗口只能縮短，不能消除。
+  - script 路徑：repo 沒有就用 `~/.agents/skills/clean-disk/scripts/active-in.sh`。
 - `rev-parse --show-toplevel` 的核對不能省：`git -C ''`（路徑沒代換到）會退回目前目錄，`git clean -fdx` 就會清到主 checkout 裡被 ignore 的檔案。
 - `git worktree remove` 被拒（有修改或未追蹤檔）→ 回報使用者，不要改用 `--force`。
 - `status --porcelain` 看不到被 ignore 的檔案，但 `git clean -fdx` 與 `git worktree remove` 都會刪掉它們；所以 `ignored-extras.sh` 沒回 exit 0 之前不清、不刪。exit 1 時，使用者對清單逐項決定後，只處理清單上的路徑，再重跑到 exit 0。script 路徑：repo 沒有就用 `~/.agents/skills/clean-disk/scripts/ignored-extras.sh`。

@@ -51,6 +51,7 @@ hc run --bg --json --outlive-parent \
 直接用 `agent_kind` 啟動時，第一則指令是 agent 自己的啟動參數：hc 不會追蹤它，`first_message` 是 `null`。改看 `turn` 與 status：
 
 1. `hc get --json <lane>`：`.turn` 從 `0` 變成 `≥ 1`，或 `.status.state` 是 `working` → 已送出、在跑。
+   - 剛啟動時 `.status.state` 可能是 `idle`、`.turn` 仍是 `0`：agent 開完機、還沒開始處理啟動參數裡的 prompt。`hc wait <lane>` 也可能在這時就返回，因為直接啟動沒有 launch task，開機後的 idle 會被當成「停下」。這不代表 prompt 被吃掉，再 `hc wait` 一次，應該會等到 `done`、`turn` ≥ 1。等了仍是 `turn 0` 才讀畫面。
 2. 幾秒後 `.status` 仍是 `null`、`.turn` 仍是 `0` → `hc read <lane> --lines 0` 讀畫面。常見原因是**首次信任資料夾的對話框**：這時 status 是 `null`，不是 `blocked`，`wait` 也不會因它返回。只有 `cwd` 是本次調度剛建立的本 repo worktree 時，才選信任（Claude Code 的游標預設停在「No, exit」→ 先讀畫面確認，再 `hc keys <lane> down enter`）；其他情況或看不懂選項 → 問使用者。
 3. 用 template 啟動時改看 `first_message.sent`；`false` 時先 `hc read` 確認，**不要直接重送**（可能其實已經送到）。
 

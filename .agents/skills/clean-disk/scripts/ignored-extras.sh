@@ -21,14 +21,16 @@ top=$(git --no-optional-locks -C "$1" rev-parse --show-toplevel 2>/dev/null)
 top=$(realdir "$top")
 [ -n "$want" ] && [ -n "$top" ] && [ "$want" = "$top" ] || { echo "不是 worktree 根目錄：$1" >&2; exit 2; }
 # 主 checkout 的 git-dir 等於 common-dir；它不是調度建立的 linked worktree，不該走移除流程
-gd=$(realdir "$(git -C "$want" rev-parse --git-dir 2>/dev/null)")
-cd_=$(realdir "$(git -C "$want" rev-parse --git-common-dir 2>/dev/null)")
-[ -n "$gd" ] && [ -n "$cd_" ] && [ "$gd" != "$cd_" ] || { echo "這是主 checkout（或讀不到 git-dir），不是 linked worktree：$1" >&2; exit 2; }
+# rev-parse 可能回相對路徑（主 checkout 是 .git），要在 worktree 裡解析，不能依賴呼叫端的 cwd
+gd=$(cd -- "$want" 2>/dev/null && realdir "$(git rev-parse --git-dir 2>/dev/null)")
+cd_=$(cd -- "$want" 2>/dev/null && realdir "$(git rev-parse --git-common-dir 2>/dev/null)")
+[ -n "$gd" ] && [ -n "$cd_" ] || { echo "讀不到 git-dir：$1" >&2; exit 2; }
+[ "$gd" != "$cd_" ] || { echo "這是主 checkout，不是 linked worktree：$1" >&2; exit 2; }
 
 out=$(ignored_extras "$want")
 case "$out" in *__ERR__*) echo "讀取 git status 失敗：$1" >&2; exit 2 ;; esac
 
-nested=$(nested_gits "$want" | sed "s|^$want/||; s|/\.git$||")
+nested=$(nested_gits "$want" | while IFS= read -r g; do g=${g#"$want"/}; printf '%s\n' "${g%/.git}"; done)
 hidden=$(git -C "$want" ls-files -v 2>/dev/null) || { echo "讀取 git ls-files 失敗：$1" >&2; exit 2; }
 hidden=$(printf '%s\n' "$hidden" | grep -E '^([a-z]|S) ' | cut -c3-)
 

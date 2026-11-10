@@ -1,7 +1,7 @@
 ---
 name: orchestrate-issues
 description: 主 session 當調度者，用 terminal multiplexer 同時開多條 agent 線（每條線一個 worktree + session 跑 fix-issue），依檔案重疊分線、監看各線、把關 review / CI / merge 並收尾。使用時機：(1) 使用者要一次處理多個 issue、「平行處理這些 issue」「調度」「開幾條線」「orchestrate」，(2) 延續中的多線調度，(3) 使用者明確呼叫 /orchestrate-issues。
-compatibility: Requires git, glab (GitLab) or gh (GitHub); automatic lanes need a terminal multiplexer (herdr), otherwise degrades to worktree-only
+compatibility: Requires git, glab (GitLab) or gh (GitHub); automatic lanes need a terminal multiplexer (herdr or hc), otherwise degrades to worktree-only
 ---
 
 > This skill should only be invoked explicitly by the user or other skills.
@@ -153,6 +153,7 @@ You **MUST** consider the user input before proceeding. The user input may conta
    - **關閉 issue 的方式**（issue 拆成多個 PR 時必寫）：「本 PR 只完成一部分，PR 內文與 commit message 只寫 `Refs #<N>`，不得出現自動關閉關鍵字緊接 `#<N>`（見 `_tracker/<tracker>.md`『自動關閉關鍵字』）」
    - 「方案確認、self-review 等需要決定的點照 `fix-issue` 流程停下等回覆」
 4. **確認指令真的送出**：[multiplexer] 查狀態，幾秒內沒變 `working` → [multiplexer] 讀 agent 畫面；輸入框殘留文字未送出就 [multiplexer] 送按鍵（選單、Enter、Esc）送 Enter。
+   - multiplexer 把第 2、3 點合成一個動作（啟動時就帶第一則指令）時，先組好第 3 點的指令再啟動；送出與否的判斷依據（turn 是否前進、首次信任對話框）照該 multiplexer 檔的「確認真的送出」，不要啟動後再重送一次。
 
 全部開完回報：線名、issue、分支、worktree 路徑、狀態。
 

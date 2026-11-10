@@ -10,7 +10,7 @@ Claude Code 與 Codex **共用**的骨架：一組 issue-flow skill（GitLab / G
 ├── skills/
 │   ├── README.md           ← 寫作規則
 │   ├── _tracker/           ← glab / gh 指令對照、寫入前 secret 掃描（非 skill）
-│   ├── _multiplexer/       ← herdr 等 terminal multiplexer 指令對照（非 skill）
+│   ├── _multiplexer/       ← herdr、hc 等 terminal multiplexer 指令對照（非 skill）
 │   └── create-issue/  create-worktree/  fix-issue/  commit-push-pr/  review-pr/  address-pr-review/  orchestrate-issues/  ask-agents/  clean-disk/
 ├── extensions/             ← 擴充點說明與範例（專案在自己 repo 放 context / review / pre-merge.md）
 │   ├── README.md
@@ -93,7 +93,7 @@ bash scripts/install-global.sh --uninstall  # 只移除本腳本裝的項目
 
 skill 流程：`create-issue` → `create-worktree` → （新 session）`fix-issue` → `commit-push-pr` → `review-pr`（審 PR、發總結 comment；多輪只審增量）→ `address-pr-review`（處理收到的意見：分級、確認、修、推上去、回覆或 resolve thread），之後可再跑 `review-pr` 審下一輪。
 
-**調度模式**（一次處理多個 issue）：主 session 呼叫 `orchestrate-issues`，它依檔案重疊分線，用 terminal multiplexer（目前支援 herdr；不在 multiplexer 內時退化成只建 worktree、請你自己開 session）替每條線開 worktree + agent session 跑 `fix-issue`，並監看各線、把關 review / CI / merge、收尾：
+**調度模式**（一次處理多個 issue）：主 session 呼叫 `orchestrate-issues`，它依檔案重疊分線，用 terminal multiplexer（目前支援 herdr TUI 與 hc（herdr-core，Herdr app 用的）；不在 multiplexer 內時退化成只建 worktree、請你自己開 session）替每條線開 worktree + agent session 跑 `fix-issue`，並監看各線、把關 review / CI / merge、收尾：
 
 ```
 orchestrate-issues（主 session）
@@ -113,4 +113,4 @@ merge 預設要問你（`auto_merge`）；yolo mode（`agent_start_args`）預�
 - skill：`mkdir .agents/skills/<name>` 寫 `SKILL.md`（規則見 `.agents/skills/README.md`）→ `bash scripts/generate-skill-stubs.sh` → commit。
 - 角色：`.agents/roles/<r>.md` 寫本體，再手寫 `.claude/agents/<r>.md` 與 `.codex/agents/<r>.toml` 兩份 stub（本文是 canonical 一句，守門逐字比對）→ commit。
 
-守門會擋：stub 與產生器輸出不符、手改 stub 本文、兩邊 description 不一致、讀寫權限兩邊不對稱、純讀角色本體漏掉唯讀守則句、skill 真身硬編 `glab` / `gh`、出現 multiplexer CLI 名（`herdr`）或用了 Claude 專屬 macro、skill 真身缺讓位段、擴充點引用不合規（名稱不在清單、缺「不退到 `~/.agents`」、讀 `~/.agents/extensions`）、`.agents/extensions/` 出現清單外檔名的 `.md`。
+守門會擋：stub 與產生器輸出不符、手改 stub 本文、兩邊 description 不一致、讀寫權限兩邊不對稱、純讀角色本體漏掉唯讀守則句、skill 真身硬編 `glab` / `gh`、出現 multiplexer CLI 名（`herdr`、`hc`）或用了 Claude 專屬 macro、skill 真身缺讓位段、擴充點引用不合規（名稱不在清單、缺「不退到 `~/.agents`」、讀 `~/.agents/extensions`）、`.agents/extensions/` 出現清單外檔名的 `.md`。

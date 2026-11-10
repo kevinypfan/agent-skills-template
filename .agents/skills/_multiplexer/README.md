@@ -19,7 +19,7 @@ else echo none; fi
 - `hc` → 讀 `.agents/skills/_multiplexer/hc.md`（herdr-core，Herdr app 用的 terminal 層）
 - `none` → 見下方「`none` 時的退化」
 
-`HERDR_ENV` 優先：在 hc terminal 裡再開 herdr TUI 時兩個變數都會有，這時直接管你的那一層是 herdr。
+實測兩個方向都只會有其中一種：herdr pane 的環境來自 herdr server，所以就算是在 hc terminal 裡開 herdr TUI，pane 裡也只有 `HERDR_*`；從 herdr pane 用 hc 開的 terminal 拿的是登入 session 的環境，也只有 `HC_TERMINAL_ID`。`HERDR_ENV` 優先是保險：herdr server 本身如果是在 hc terminal 裡啟動的，pane 會同時繼承兩者，這時直接管你的那一層是 herdr。
 
 3. 指定了 multiplexer 但不在其中（例如 `herdr` 卻 `HERDR_ENV` 不是 1、`hc` 卻沒有 `HC_TERMINAL_ID`）→ 停下告訴使用者，不要從外部去控制別人的 session。
 
@@ -38,7 +38,7 @@ else echo none; fi
 | 列出所有 agent／session | `herdr agent list`、`herdr workspace list`、`herdr worktree list --workspace <ws>` | `hc ls --json [--label orchestrate=<repo>]`、`git worktree list --porcelain` | 重建調度狀態用：agent 名稱、cwd、狀態；session 與其 worktree 分支 |
 | 等任一條線停下 | 輪詢 `herdr agent list` 的 loop（見 `herdr.md`） | `hc wait --children any` | 背景執行，有線離開 `working` 就回報 |
 | 送按鍵（選單、Enter、Esc） | `herdr agent send-keys <name> enter\|esc\|down\|up` | `hc keys <name> enter\|esc\|down\|up` | |
-| 關 session 並移除 worktree | `herdr agent send-keys <name> esc`（Codex 再送 `/stop`）→ `herdr workspace close <ws>` → 確認沒有殘留 process → 檢查 → `git worktree remove <path>`（不帶 `--force`） | `hc interrupt`（Codex 再送 `/stop`）→ `hc kill <address>` → 確認沒有殘留 process → 檢查 → `git worktree remove <path>`（不帶 `--force`）→ `hc rm <address>` | 兩邊都是先停再檢查（見各 multiplexer 檔）；hc 另要先核對身分。herdr 不用 `herdr worktree remove`：它一步就刪，中間沒有機會檢查 |
+| 關 session 並移除 worktree | `herdr agent send-keys <name> esc`（Codex 再送 `/stop`）→ `herdr workspace close <ws>` → 確認沒有殘留 process → 檢查 → `git worktree remove <path>`（不帶 `--force`） | `hc interrupt`（Codex 再送 `/stop`）→ `hc kill <address>` → 確認沒有殘留 process → 檢查 → `git worktree remove <path>`（不帶 `--force`）→ `hc rm <address>` | 兩邊都要先核對身分、先停再檢查（見各 multiplexer 檔）。herdr 不用 `herdr worktree remove`：它一步就刪，中間沒有機會檢查 |
 | 關 session（worktree 已移除時） | `herdr workspace close <ws>` | `hc kill <address>` + `hc rm <address>` | |
 
 ## 狀態語意（各 multiplexer 共用）

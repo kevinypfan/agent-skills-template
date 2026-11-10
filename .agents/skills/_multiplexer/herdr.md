@@ -124,9 +124,10 @@ herdr 先驗證所有 key 再寫入；選單操作前一定先 `--source visible
 先停 agent、關 workspace，再檢查，最後用 git 移除 worktree。**不要用 `herdr worktree remove`**：它把「關 agent」和「刪 worktree」綁成一步，中間沒有機會檢查，而且帶不帶 `--force` 都會刪掉被 ignore 的檔案。
 
 ```bash
-herdr agent send-keys <name> esc                 # 停掉正在跑的這一輪
+herdr agent get <name>                           # 先核對身分：workspace_id = 分線表記下的 workspace、cwd = 該線的 worktree；不符就標 gone，不要動它
+herdr agent send-keys <name> esc                 # 只在 agent_status 是 working 時送：停掉正在跑的這一輪（blocked 時先 --source visible 讀畫面再決定）
 herdr agent prompt <name> '/stop'                # 只有 Codex：被打斷後它的指令會轉成背景 terminal 繼續跑，/stop 才會關掉
-herdr agent wait <name> --until idle --timeout 30000   # 只有 Codex：等 /stop 處理完，再 --source visible 讀畫面確認沒有「background terminal running」
+herdr agent wait <name> --until idle --until done --timeout 30000   # 只有 Codex：等 /stop 處理完（--no-focus 的 workspace 會停在 done），再 --source visible 讀畫面確認沒有「background terminal running」
 herdr workspace close <workspace_id>             # 關掉這條線的 session（agent 會一起結束）
 bash .agents/skills/clean-disk/scripts/active-in.sh <worktree-path>       # 還有 process 的 cwd 在 worktree 裡：exit 1 → 列出來問使用者；exit 2 → 回報，不刪
 git -C <worktree-path> rev-parse --show-toplevel # 必須等於該線的 worktree 路徑，且不是主 checkout；不符就停下
@@ -137,6 +138,7 @@ bash .agents/skills/clean-disk/scripts/ignored-extras.sh <worktree-path>
 git worktree remove <worktree-path>              # 不帶 --force；被拒（有修改或未追蹤檔）→ 回報，不要改用 --force
 ```
 
+- 核對身分不能省：herdr 的 name 只保證在 live agent 間唯一，原本的線結束後，別的工作可以用同一個名字；只靠 name 送 `esc`／`/stop`，可能打斷別人的 agent。
 - 關 workspace 收不掉 Codex 已經在跑的指令：實測關掉 workspace 後，沒加 `--no-daemon` 的指令留在 daemon 底下，加了的變成孤兒程序（被 pid 1 收養），兩者都還可能在 worktree 裡寫檔。所以關之前先打斷（Codex 再加 `/stop`），關之後跑 `active-in.sh`。exit 1 時的處理、exit 0 的意義與限制，見 `hc.md`「關 session 並移除 worktree」的說明（兩邊相同）。
 - `status --porcelain` 看不到被 ignore 的檔案，但 `git worktree remove` 會刪掉它們；所以 `ignored-extras.sh` 沒回 exit 0 之前不移除。exit 1 時，使用者對清單逐項決定後，只處理清單上的路徑，再重跑到 exit 0。
 - script 路徑：repo 沒有就用 `~/.agents/skills/clean-disk/scripts/`（`active-in.sh`、`ignored-extras.sh`）。

@@ -1,0 +1,3 @@
+# 一律以 LF 存放與 checkout：stub 守門逐字比對產生器輸出、shell script 與 SKILL.md frontmatter 遇到 CRLF 會壞，
+# Windows 上 core.autocrlf=true 也不例外。
+* text=auto eol=lf

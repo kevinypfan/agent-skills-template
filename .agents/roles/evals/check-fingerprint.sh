@@ -41,6 +41,12 @@ mkdir -p ignored && echo junk > ignored/out; now=$(bash "$fp"); [ "$now" = "$las
 # 唯讀：不寫入 object
 before=$(find .git/objects -type f | wc -l); bash "$fp" >/dev/null; after=$(find .git/objects -type f | wc -l)
 [ "$before" = "$after" ] && pass=$((pass+1)) || bad "計算指紋寫入了 object（${before} → ${after}）"
+# HEAD 換了、未 commit 的改動相同（rebase 到新 base 的情況）：指紋要變
+cd "$R" && mkdir h && cd h && g init -q && echo a > a && echo b > b && g add a b && g commit -qm one
+echo mine >> a; h1=$(bash "$fp"); d1=$(git diff HEAD)
+g stash -q && echo base >> b && g commit -qam two && g stash pop -q; h2=$(bash "$fp"); d2=$(git diff HEAD)
+[ "$d1" = "$d2" ] && [ "$h1" != "$h2" ] && pass=$((pass+1)) || bad "HEAD 換了、未 commit 改動相同，指紋卻沒變"
+cd "$R/w"
 # 沒有 commit 的 repo：明確失敗
 mkdir "$R/empty" && (cd "$R/empty" && git init -q); bash "$fp" "$R/empty" >/dev/null 2>&1 && bad "unborn HEAD 應失敗" || pass=$((pass+1))
 echo "worktree-fingerprint：${pass} 通過，${fail} 失敗"

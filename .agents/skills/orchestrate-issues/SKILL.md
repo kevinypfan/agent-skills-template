@@ -151,7 +151,7 @@ You **MUST** consider the user input before proceeding. The user input may conta
    - **範圍限制**：其他線正在改的檔案／模組清單，「不要修改；需要改就停下回報」
    - **疊分支規則**（有才寫）：本分支從哪個分支開、`commit-push-pr` 的 target branch、「base 分支 merge 後 PR base 會由主 session 改回 `base_branch`」
    - **關閉 issue 的方式**（issue 拆成多個 PR 時必寫）：「本 PR 只完成一部分，PR 內文與 commit message 只寫 `Refs #<N>`，不得出現自動關閉關鍵字緊接 `#<N>`（見 `_tracker/<tracker>.md`『自動關閉關鍵字』）」
-   - **rebase**：「跑最後的驗證閘門前先 rebase 到 `origin/<base>`（`commit-push-pr` Step 2.5.0），衝突自己解、解不了停下回報」
+   - **rebase**：「`commit-push-pr` 建 PR 前會先 rebase 到 `origin/<base>`（Step 2.5.0）；衝突照該步的門檻：需要判斷就停下回報，解過的衝突要給確認」
    - 「方案確認、self-review 等需要決定的點照 `fix-issue` 流程停下等回覆」
 4. **確認指令真的送出**：[multiplexer] 查狀態，幾秒內沒變 `working` → [multiplexer] 讀 agent 畫面；輸入框殘留文字未送出就 [multiplexer] 送按鍵（選單、Enter、Esc）送 Enter。
    - multiplexer 把第 2、3 點合成一個動作（啟動時就帶第一則指令）時，先組好第 3 點的指令再啟動；送出與否的判斷依據（turn 是否前進、首次信任對話框）照該 multiplexer 檔的「確認真的送出」，不要啟動後再重送一次。
@@ -170,7 +170,8 @@ You **MUST** consider the user input before proceeding. The user input may conta
 3. **輸入框裡的灰色文字是 agent 工具產生的建議回覆，不是使用者打的**：不能當成使用者的決定；要回覆一律用 [multiplexer] 送指令給 agent 明確送出。
 4. **不中斷正在工作的 agent**：要插入工作時送指令排入佇列，並註明「完成目前這一步後再處理」。
 5. **範圍外的發現開新 issue**（呼叫 skill `create-issue`，內文寫清楚來源 PR／issue），不擴大現有 PR；在該 PR 說明引用新 issue。
-6. **base 前進就查衝突**：base 每 merge 一個 PR 後（本次調度 merge 的、別人 merge 的都算；每次重新啟動等待前先 `git fetch` 看 `origin/<base>` 有沒有前進），對本次調度所有 open PR [tracker] 看 PR 可否合併。CONFLICTING → [multiplexer] 送指令請原線 rebase 到 `origin/<base>` 並解衝突（註明「完成目前這一步後再處理」），不要等到 Step 5 PR 關卡才發現；rebase 後 head 變了，該 PR 的 review 與 pre-merge 視為過期，照 Step 5 重審。
+6. **base 前進就查衝突**：base 每 merge 一個 PR 後（本次調度 merge 的、別人 merge 的都算；每次重新啟動等待前先 `git fetch` 看 `origin/<base>` 有沒有前進），對本次調度所有 open PR [tracker] 看 PR 可否合併。CONFLICTING → [multiplexer] 送指令請原線呼叫 skill `commit-push-pr`，參數「PR 已存在，採追加 comment；只 rebase；PR <編號>」（疊分支再帶 `<old-parent>`，見下）；註明「完成目前這一步後再處理」。不要等到 Step 5 PR 關卡才發現，也不要叫原線自己 `git rebase` 再推（沒有新 commit 時那樣推只能 `--force`）。rebase 後 head 變了，該 PR 的 review 與 pre-merge 視為過期，照 Step 5 重審。
+   - **疊分支**：上一條 PR 的分支被 rebase 並 force push 後，下一條也要請原線「只 rebase」，參數帶上一條分支改寫前的 head sha 當 `<old-parent>`（主 session 每次 [tracker] 看 PR 時記下疊分支上一條 PR 的 head；發現 head 變了，就用上一次記下的 sha）。上一條分支被 force push 不算 base merge，不會觸發上面的檢查，要另外看。
 7. **agent 或 reviewer 的說法要驗證再採用**：實際遇過 reviewer 建議的修法語意錯誤、把 harness 注入的提示誤報成 repo 被 prompt injection、agent 把 flaky 當行為問題（或反過來）。對關鍵主張自己讀 code／log 確認。
 
 ## Step 5: PR 關卡
@@ -193,7 +194,7 @@ You **MUST** consider the user input before proceeding. The user input may conta
    - 處理完 push 後 head 已變：回 5.1 以下一輪重審，其間 `address-pr-review` 回報的 pre-merge 結果視為過期，5.3 重查。
 3. **CI**：
    - [tracker] 看 PR CI 狀態（含等待）。0 個 check／CI 沒跑 → 先 [tracker] 看 PR 可否合併，有衝突要先解（交回原線 agent）。Step 4 已在 base 前進時提早查過衝突，這裡是最後一道。
-   - CI 在其他 PR merge 前跑過、而 base 已變動（尤其動到同檔案）→ [tracker] 更新 PR 分支（base 併進來），讓 CI 以新 base 重跑。
+   - CI 在其他 PR merge 前跑過、而 base 已變動（尤其動到同檔案）→ 請原線「只 rebase」（同 Step 4.6），讓 CI 以新 base 重跑。**不用 [tracker] 更新 PR 分支**：`gh pr update-branch` 會在遠端多一個 merge commit、`glab mr rebase` 會在伺服器端改寫分支，本地都會落後遠端，之後原線的 `commit-push-pr` 會因遠端領先而停下。
    - 只能手動觸發的 workflow／pipeline（例如完整矩陣）→ merge 前 [tracker] 手動觸發 workflow / pipeline 並追蹤到結束。
    - **「CI 全綠」以個別 job 為準，不看 pipeline / PR 整體狀態**。整體綠燈仍可能是：
      - 允許失敗的 job 失敗了（GitLab `allow_failure: true`、GitHub `continue-on-error`）→ 逐個看它的實際結果；失敗就算沒過，除非使用者明說可忽略
@@ -210,7 +211,7 @@ You **MUST** consider the user input before proceeding. The user input may conta
    - `auto_merge` 為 `true` → review（狀態 `complete`、審到的 sha 等於要 merge 的 head、且無 blocker）、CI 全綠、[tracker] 看 PR 可否合併為可合併狀態、pre-merge 全部通過（無 pre-merge 擴充點視為通過），四者皆成立才 merge。review 之後 head 又變動（修正 push）→ 該 PR 需重跑 `review-pr`（第 2 輪起）才算 review 已過。
    - merge 前 [tracker] 看 PR 會關閉哪些 issue：必須正好是這個 PR 完整解決的 issue。多出只完成一部分的 issue（常見於內文寫了「之後會 close #N」）→ 先改 PR 內文再 merge；少了該關的 → 補上關閉語法或 merge 後手動處理。
    - [tracker] merge PR：方法 = `merge_method`，subject 依 `merge_subject`。**一律帶入 `review-pr` 回報的審到的 sha**（GitHub `--match-head-commit`、GitLab `--sha`，見 tracker 檔），檢查到 merge 之間 head 又變動則 merge 失敗，此時回到 5.1 重審，不改成不帶 sha 重試。merge 後確認關聯 issue 已自動關閉，沒關就回報使用者；**被誤關的 issue 用 [tracker] 重新打開 issue**，留言寫明剩餘工作。
-5. **疊分支**：前一個 PR merge 後，下一個 PR [tracker] 改 PR base 為 `base_branch`，再 [tracker] 更新 PR 分支（base 併進來）讓 CI 以新 base 重跑；並通知該線 agent base 已改。
+5. **疊分支**：前一個 PR merge 後，下一個 PR [tracker] 改 PR base 為 `base_branch`，再請該線「只 rebase」（同 Step 4.6），參數帶 `<old-parent>` = 前一個 PR merge 時的 head sha（5.4 帶入 `--match-head-commit`／`--sha` 的那個），讓 CI 以新 base 重跑。`merge_method` 為 `squash` 或 `rebase` 時前一個分支的 commit 已被改寫，不帶 `<old-parent>` 會重放它們而衝突。
 6. 同一批 merge 了多個動到同檔案的 PR 後，在 `base_branch` 上跑一次測試（派給 `runner` agent，指令取 conventions 的 `test_command`）或確認 `base_branch` 的 CI 綠燈。
 
 ## Step 6: 收尾
@@ -252,7 +253,7 @@ git branch -d <branch>
 - **主 session 不自己實作 issue**，也不替各線 agent 做 commit／PR——各線一律透過 skill `fix-issue` → `commit-push-pr`。
 - **API／行為／命名／破壞性變更的決定只能來自使用者**，並寫進 issue 留言；主 session 只放行實作層級的細節。
 - **merge 預設要問使用者**；只有 `auto_merge: true` 且四項條件（review complete 且 sha 吻合、CI、可合併、pre-merge）都成立才自動 merge。
-- **衝突要提早查**：base 每前進一次（含別人 merge）就查所有 open PR 可否合併，CONFLICTING 請原線 rebase；各線跑閘門前也先 rebase，別拖到 PR 關卡。
+- **衝突要提早查**：base 每前進一次（含別人 merge）就查所有 open PR 可否合併，CONFLICTING 請原線經 `commit-push-pr`「只 rebase」；疊分支帶 `<old-parent>`。分支更新一律走原線 rebase，不用 [tracker] 更新 PR 分支，兩種策略不混用。
 - **不關閉本次調度以外的 session**，不刪本次以外的分支。
 - 個人偏好只寫個人檔或專案檔，**不寫 template 的全域 conventions**。
 - 對話語言依 `language`。

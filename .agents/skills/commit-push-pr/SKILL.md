@@ -33,7 +33,7 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `base_branch`、`pr_labels`、`pr_assignee`、`pr_template`、`commit_scopes`、`commit_trailer`、`commit_language`、`verify_commands`、`language`、`autopilot`。
 2. 依 `.agents/skills/_tracker/README.md` 判斷 tracker，讀對應 `.agents/skills/_tracker/<tracker>.md`。下文 **[tracker] 動作** 一律查該檔。
-3. `autopilot` 不是 `off` 時讀 `.agents/skills/_autopilot/README.md`，依其「何時生效」判斷本次的有效值；下文寫「`autopilot` 生效時」的地方照該檔做。
+3. `autopilot` 不是 `off` 時讀 `.agents/skills/_autopilot/README.md`，依其「何時生效」判斷本次的有效值；下文寫「`autopilot` 生效時」的地方照該檔做。其中「PR 已存在且不確定是自己的」要在 Step 1 查完 PR、比對作者後才判定，**判定前一律當 `off`**。
 
 ## Workflow
 
@@ -58,13 +58,13 @@ git status --short
 - **Efficiency** — 不必要的計算、缺少並行、hot-path 問題
 - **專案 review 清單** — 讀擴充點 `.agents/extensions/review.md`：只看當前 repo 根（`git rev-parse --show-toplevel`），不退到 `~/.agents`；有就照做、沒有就跳過，兩種情況都寫進回報的「擴充點」列。逐項檢查清單，並避開檔內列的「常見過嚴意見」。檢查項只做判讀、不改檔；要修的照本 skill 既有的自審確認流程。
 
-**只做 review，不做 auto-fix。** 本步驟是 push 前的自審；skill `review-pr` 審的是已建立的 PR，不適用於這一步。審查完成後：
+**只做 review，不做 auto-fix**（`autopilot` 生效時的例外見本步最後一段）。本步驟是 push 前的自審；skill `review-pr` 審的是已建立的 PR，不適用於這一步。審查完成後：
 1. **列出問題清單**，讓使用者決定要修哪些
 2. 根據使用者確認的項目修正，跳過不想改的
 3. **Review untracked files**：哪些該 commit、哪些該 ignore
-4. **使用者確認所有想修的都修完**才進 Step 2.5
+4. **使用者確認所有想修的都修完**才進 Step 2.5（`autopilot` 生效時見下段）
 
-`autopilot` 生效時：清單照樣列出，修法明確、不擴大範圍的直接修，untracked 檔明顯屬於本次改動的才 stage、其餘不 commit 並列在回報；要擴大範圍、改對外契約、或有取捨的項目 → 停下照上面的流程問使用者。**自動修過檔案**就要在 commit 前派 `runner` 重跑 `test_command` 與 `lint_command`，綠燈綁定指紋（兩者都沒定義 → 停下問；2.5.0 因 rebase 已重跑過就不重複）。
+`autopilot` 生效時：清單照樣列出，修法明確、不擴大範圍的直接修，untracked 檔明顯屬於本次改動的才 stage、其餘不 commit 並列在回報；要擴大範圍、改對外契約、或有取捨的項目 → 停下照上面的流程問使用者。**自動修過檔案**就在 2.5.1 派 `runner` 重跑 `test_command` 與 `lint_command`，綠燈綁定指紋（兩者都沒定義 → 停下問；2.5.0 有 rebase 時與 rebase 後那次合併成一次）。
 
 ### Step 2.5: Rebase 到最新 base，再跑 Verification Gate
 

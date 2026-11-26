@@ -25,7 +25,7 @@ bash "$c" clear codex; bash "$c" check codex >/dev/null && ok || bad "clear 後�
 [ "$(bash "$c" list | wc -l | tr -d ' ')" = 2 ] && ok || bad "list 應只列仍在冷卻的（agy、claude）"
 bash "$c" set codex "@$((now - 1))" 2>/dev/null; [ $? -eq 2 ] && ok || bad "過去的到期時間應拒絕"
 bash "$c" set codex soon 2>/dev/null; [ $? -eq 2 ] && ok || bad "非數字時間應拒絕"
-bash "$c" set codex 60 "$(printf 'a\tb\nc')" >/dev/null; [ "$(grep -c '^codex' "$ASK_AGENTS_STATE")" = 1 ] && ok || bad "原因含 tab／換行不能破壞格式"
+bash "$c" set codex 60 "$(printf 'a\tb\nc')" >/dev/null; awk -F'\t' 'NF != 3 { bad=1 } END { exit bad }' "$ASK_AGENTS_STATE" && ok || bad "原因含 tab／換行不能破壞格式（每行要正好 3 欄）"
 bash "$c" set codex 5h >/dev/null && [ "$(awk -F'\t' '$1=="codex"{print $2}' "$ASK_AGENTS_STATE")" -ge $((now + 18000)) ] && ok || bad "5h 應換算成 18000 秒"
 bash "$c" set codex 30m >/dev/null && ok || bad "30m 應接受"
 bash "$c" set codex 5x 2>/dev/null; [ $? -eq 2 ] && ok || bad "未知單位應拒絕"
@@ -37,5 +37,23 @@ bash "$c" clear codex; bash "$c" clear claude; bash "$c" clear agy
 for a in a1 a2 a3 a4 a5 a6; do bash "$c" set "$a" 600 >/dev/null & done; wait
 [ "$(bash "$c" list | wc -l | tr -d ' ')" = 6 ] && ok || bad "平行 set 6 家應留下 6 筆，實際 $(bash "$c" list | wc -l | tr -d ' ')"
 [ -d "$ASK_AGENTS_STATE.lock" ] && bad "鎖沒有釋放" || ok
+# 時刻與前導零
+bash "$c" set codex 08h >/dev/null && [ "$(awk -F'\t' '$1=="codex"{print $2}' "$ASK_AGENTS_STATE")" -ge $((now + 28800)) ] && ok || bad "08h 應以十進位換算（不能當八進位）"
+bash "$c" set codex 90s >/dev/null && bash "$c" set codex 1d >/dev/null && ok || bad "90s／1d 應接受"
+t=$(date -d '@'$((now + 7200)) '+%H:%M' 2>/dev/null || date -r $((now + 7200)) '+%H:%M')
+bash "$c" set codex "$t" >/dev/null && u=$(awk -F'\t' '$1=="codex"{print $2}' "$ASK_AGENTS_STATE") && [ "$u" -gt "$now" ] && [ "$u" -le $((now + 86400)) ] && ok || bad "HH:MM 應換算成未來 24 小時內"
+p=$(date -d '@'$((now - 3600)) '+%H:%M' 2>/dev/null || date -r $((now - 3600)) '+%H:%M')
+bash "$c" set codex "$p" >/dev/null && u=$(awk -F'\t' '$1=="codex"{print $2}' "$ASK_AGENTS_STATE") && [ "$u" -gt $((now + 79000)) ] && ok || bad "已過的 HH:MM 應算明天"
+d=$(date -d '@'$((now + 86400)) '+%Y-%m-%d %H:%M' 2>/dev/null || date -r $((now + 86400)) '+%Y-%m-%d %H:%M')
+bash "$c" set codex "$d" >/dev/null && ok || bad "\"YYYY-MM-DD HH:MM\" 應接受"
+bash "$c" set codex 25:99 2>/dev/null; [ $? -eq 2 ] && ok || bad "不存在的時刻應拒絕"
+# 用法錯與冷卻中要分得開
+bash "$c" check 2>/dev/null; [ $? -eq 2 ] && ok || bad "check 缺參數應 exit 2（不是冷卻的 1）"
+# 殘留的鎖：新的要等，超過 60 秒的要清掉；check 不受鎖影響
+mkdir "$ASK_AGENTS_STATE.lock"; touch -t "$(date -r $((now - 120)) '+%Y%m%d%H%M.%S' 2>/dev/null || date -d '@'$((now - 120)) '+%Y%m%d%H%M.%S')" "$ASK_AGENTS_STATE.lock"
+bash "$c" set stale 60 >/dev/null && ok || bad "超過 60 秒的殘留鎖應被清掉"
+mkdir "$ASK_AGENTS_STATE.lock"; bash "$c" check stale >/dev/null; [ $? -eq 1 ] && ok || bad "有鎖時 check 仍要能讀"
+bash "$c" set fresh 60 2>/dev/null; [ $? -eq 3 ] && ok || bad "新鮮的鎖應等到逾時後 exit 3"
+rmdir "$ASK_AGENTS_STATE.lock"
 echo "cooldown：${pass} 通過，${fail} 失敗"
 [ "$fail" = 0 ]

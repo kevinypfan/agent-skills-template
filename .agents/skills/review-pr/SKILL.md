@@ -52,7 +52,7 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `language`、`review_fanout`、`adversarial_external`、`base_branch`、`autopilot`、`autopilot_max_rounds`。
 2. 依 `.agents/skills/_tracker/README.md` 判斷 tracker，讀對應 `.agents/skills/_tracker/<tracker>.md`。下文 **[tracker] 動作** 一律查該檔。
-3. `autopilot` 不是 `off` 時讀 `.agents/skills/_autopilot/README.md`，依其「何時生效」判斷本次的有效值（PR 作者要**確定**等於自己帳號才可能生效，與 Step 1 第 5 點「判不出來當自審」無關）。下文寫「`autopilot` 生效時」的地方照該檔做。
+3. `autopilot` 不是 `off` 時讀 `.agents/skills/_autopilot/README.md`，依其「何時生效」判斷本次的有效值（PR 作者要**確定**等於自己帳號才可能生效，在 Step 1 取得作者後才判定、判定前當 `off`，與 Step 1 第 5 點「判不出來當自審」無關）。下文寫「`autopilot` 生效時」的地方照該檔做。
 
 ## Step 1: 找 PR
 
@@ -122,7 +122,7 @@ findings 格式與嚴重度沿用 `.agents/roles/reviewer.md`：`[嚴重度] 檔
 
 做法（依序嘗試，前一個不可用才退下一個）：
 
-1. `adversarial_external` 為 `auto`（預設）→ **同一則訊息裡同時**呼叫 skill `ask-agents`（同下方 `true` 的做法）並派 `reviewer` agent 吃同一份 prompt，兩邊都在背景跑。`reviewer` 回來就驗證它的 finding 並往 Step 4 組稿；外部 agent 在組稿完成前回來就一起併入。組稿完成時外部還沒回，最多再等 5 分鐘，仍沒回就以 `reviewer` 的結果為準，Adversarial pass 區段註明「外部 agent 未在時限內回覆」（它之後才回來、且在發佈前，仍併入並更新稿件）。`ask-agents` 回報外部在冷卻中或不可用 → 只用 `reviewer` 的結果，註明原因。`reviewer` 失敗或環境沒有 sub agent → 改等外部 agent 回來（不套 5 分鐘上限）；兩邊都失敗或不可用才走第 3 點。兩邊任一對整個 PR 成功跑完就算已跑過（狀態規則）。
+1. `adversarial_external` 為 `auto`（預設）→ **同一則訊息裡同時**呼叫 skill `ask-agents`（同下方 `true` 的做法）並派 `reviewer` agent 吃同一份 prompt，兩邊都在背景跑。`reviewer` 回來就驗證它的 finding 並往 Step 4 組稿；外部 agent 在組稿完成前回來就一起併入。組稿完成時外部還沒回，最多再等 5 分鐘，仍沒回就以 `reviewer` 的結果為準，Adversarial pass 區段註明「外部 agent 未在時限內回覆」（它之後才回來、且在發佈前，仍併入並更新稿件）。`ask-agents` 回報外部在冷卻中或不可用 → 只用 `reviewer` 的結果，註明原因。`reviewer` 失敗或環境沒有 sub agent → 改等外部 agent 回來（不套 5 分鐘上限）；兩邊都失敗或不可用才走第 3 點。`auto` 下狀態分開記：總結的 Adversarial pass 區段寫明「reviewer 已跑過」與「外部 agent 已跑過／未跑過（原因）」。任一邊對整個 PR 跑完，本輪就算已執行、不擋收斂；但外部 agent 還沒對整個 PR 跑過、而且這次不在冷卻中時，之後的輪次要補問外部一次（只問外部，reviewer 不重跑）。發佈後外部才回來且有屬實的 blocker／major → 另發一則補充總結並告知使用者；`autopilot` 的 merge 關卡會等外部回來（見 `_autopilot`）。
    `adversarial_external` 為 `true` → 呼叫 skill `ask-agents`：用 `.agents/skills/review-pr/assets/adversarial-prompt.md` 組 prompt，填入 base／head、高風險命中項、assumption 清單、本輪已找到的 findings；必讀證據只是 seeds，模板已要求對方自行擴大搜尋。**只用 `ask-agents` 的 Step 1–3 取回意見，不走它的「Review 場景的後續流程」**；發佈一律回到本 skill 的 Step 4–5。
    `adversarial_external` 為 `false` → 不送外部 agent，直接派 `reviewer` agent 吃同一份 prompt，來源標「adversarial pass（reviewer agent，adversarial_external=false）」，並在總結註明。
 2. （`true` 時）`ask-agents` 不可用、回報外部在冷卻中、或回覆為空 → 派給 `reviewer` agent 吃同一份 prompt。來源標「adversarial pass（reviewer agent，外部 agent 不可用：<原因>）」。
@@ -134,7 +134,7 @@ findings 格式與嚴重度沿用 `.agents/roles/reviewer.md`：`[嚴重度] 檔
 
 1. 讀 `.agents/skills/review-pr/assets/summary-template.md`，依 `language` 填成總結 comment。標題固定 `## PR Review（第 N 輪，審至 <sha>）`，sha 取 `git rev-parse --short=7 <head>`（至少 7 碼，碰撞時會更長；解析端接受 7 碼以上）。**findings 預設全寫進總結並附 `file:line`**，不預設留 inline。
 2. **收斂判準**：本輪無新 blocker／major，且上輪的 blocker／major 都已修或不採納成立 → 結論可寫「建議合併」。上輪未處理的 minor／nit 不阻擋：在上輪追蹤表標「未修（非阻塞）」，結論列為非阻塞項。自審或高風險的 PR 另加一條：Step 3b 已跑過，否則不得寫。有未裁決的 `needs-architect` 也不得寫。
-3. **在對話中完整呈現**稿件（findings、嚴重度、結論）。**自審也一樣**：先呈現、等使用者確認才發佈，不自動發。唯一例外是 `autopilot` 生效時：照 `_autopilot`「`review-pr` 的自動選項」選（有未裁決的 `needs-architect` 或狀態會是 `incomplete` 時不自動選；結論「建議合併」選「只發佈」；輪次達 `autopilot_max_rounds` 只發佈並停），仍完整呈現稿件。
+3. **在對話中完整呈現**稿件（findings、嚴重度、結論）。**自審也一樣**：先呈現、等使用者確認才發佈，不自動發。唯一例外是 `autopilot` 生效時：照 `_autopilot`「`review-pr` 的自動選項」選，仍完整呈現稿件。
 4. 問使用者（沒有互動選單的環境直接在對話中列出選項；第一個為預設）。**由 `orchestrate-issues` 呼叫時選項去掉「發佈並處理」**（只剩只發佈／調整／另外留 inline），仍要呈現並等使用者確認；處理交給 orchestrate 5.2，不串接 `resolve-review`。
    - **發佈並處理**（預設）→ Step 5 發佈後進 Step 6 串接。列出此選項前先檢查本地：目前分支是 PR 的 head 分支、與 PR head 一致且工作樹乾淨才維持預設；不符合時標註「發佈後需先切到 PR 分支或 worktree，`resolve-review` 才能執行」，並把預設改為「只發佈」
    - **只發佈** → Step 5 發佈後停在 Step 6 回報

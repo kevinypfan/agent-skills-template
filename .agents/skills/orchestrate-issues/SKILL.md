@@ -171,7 +171,7 @@ You **MUST** consider the user input before proceeding. The user input may conta
 3. **輸入框裡的灰色文字是 agent 工具產生的建議回覆，不是使用者打的**：不能當成使用者的決定；要回覆一律用 [multiplexer] 送指令給 agent 明確送出。
 4. **不中斷正在工作的 agent**：要插入工作時送指令排入佇列，並註明「完成目前這一步後再處理」。
 5. **範圍外的發現開新 issue**（呼叫 skill `create-issue`，內文寫清楚來源 PR／issue），不擴大現有 PR；在該 PR 說明引用新 issue。
-6. **base 前進就查衝突**：base 每 merge 一個 PR 後（本次調度 merge 的、別人 merge 的都算；每次重新啟動等待前先 `git fetch` 看 `origin/<base>` 有沒有前進），對本次調度所有 open PR [tracker] 看 PR 可否合併。CONFLICTING → [multiplexer] 送指令請原線呼叫 skill `commit-push-pr`，參數「PR 已存在，採追加 comment；只 rebase；PR <編號>」（疊分支再帶 `<old-parent>`，見下）；註明「完成目前這一步後再處理」。不要等到 Step 5 PR 關卡才發現，也不要叫原線自己 `git rebase` 再推（沒有新 commit 時那樣推只能 `--force`）。rebase 後 head 變了，該 PR 的 review 與 pre-merge 視為過期，照 Step 5 重審。
+6. **base 前進就查衝突**：base 每 merge 一個 PR 後（本次調度 merge 的、別人 merge 的都算；每次重新啟動等待前先 `git fetch` 看 `origin/<base>` 有沒有前進），對本次調度所有 open PR [tracker] 看 PR 可否合併。CONFLICTING → [multiplexer] 送指令請原線呼叫 skill `commit-push-pr`，參數「PR 已存在，採追加 comment；只 rebase；PR <編號>；由 orchestrate-issues 調度」（疊分支再帶 `<old-parent>`，見下；調度標記讓線內的 `autopilot` 維持 `off`，本節其他「只 rebase」同此）；註明「完成目前這一步後再處理」。不要等到 Step 5 PR 關卡才發現，也不要叫原線自己 `git rebase` 再推（沒有新 commit 時那樣推只能 `--force`）。rebase 後 head 變了，該 PR 的 review 與 pre-merge 視為過期，照 Step 5 重審。
    - **疊分支**：上一條 PR 的分支被 rebase 並 force push 後，下一條也要請原線「只 rebase」，參數帶上一條分支改寫前的 head sha 當 `<old-parent>`（主 session 每次 [tracker] 看 PR 時記下疊分支上一條 PR 的 head；發現 head 變了，就用上一次記下的 sha）。上一條分支被 force push 不算 base merge，不會觸發上面的檢查，要另外看。
 7. **agent 或 reviewer 的說法要驗證再採用**：實際遇過 reviewer 建議的修法語意錯誤、把 harness 注入的提示誤報成 repo 被 prompt injection、agent 把 flaky 當行為問題（或反過來）。對關鍵主張自己讀 code／log 確認。
 

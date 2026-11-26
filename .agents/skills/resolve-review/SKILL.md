@@ -54,7 +54,7 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 ## Step 0: 讀設定與判斷來源
 
-1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `language`、`test_command`、`lint_command`、`autopilot`。`autopilot` 不是 `off` 時讀 `.agents/skills/_autopilot/README.md`，依其「何時生效」判斷本次是否生效；下文寫「`autopilot` 生效時」的地方照該檔做。
+1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `language`、`test_command`、`lint_command`、`autopilot`。`autopilot` 不是 `off` 時讀 `.agents/skills/_autopilot/README.md`，依其「何時生效」判斷本次是否生效（「PR 已存在且不確定是自己的」在 Step 1 取得 PR 作者後才判定，判定前當 `off`）；下文寫「`autopilot` 生效時」的地方照該檔做。
 2. 依 `.agents/skills/_tracker/README.md` 判斷 tracker，讀對應 `.agents/skills/_tracker/<tracker>.md`。下文 **[tracker] 動作** 一律查該檔。
 3. 解析使用者參數。兩種串接格式：`由 review-pr 呼叫；<PR>，第 <N> 輪`（autopilot 串接時尾端多「；由 autopilot 串接（`<值>`）」；沒有這段標記就是使用者手動選的，`autopilot` 為 `off`）、`由 orchestrate-issues 呼叫；<PR>，第 <N> 輪；只處理：<id 清單>`。參數已給 PR 編號與輪次：**直接採用，不重新找 PR、不重掃輪次**；其餘（thread、總結內容、head sha）一律即時取，不信任呼叫端轉述。有「只處理」時，Step 1 照常收集，Step 2 起只處理清單內的 id，清單外的在回報註明「不在指定範圍」，不分級、不回覆；id 在收集結果裡找不到也要回報。
 
@@ -141,7 +141,7 @@ push 前重新 **[tracker] 看 PR（JSON）**，比對 head 是否仍是 Step 1 
 PR 已存在，採追加 comment；這是回應 review 的追加變更；PR <編號>，第 <N> 輪；變更對應 finding：<id 清單>；pre-merge 項目：<名稱與處理結果，沒有就省略>
 ```
 
-參數尾端依來源再加一段：由 `orchestrate-issues` 呼叫 →「；由 orchestrate-issues 調度」（讓 `commit-push-pr` 也維持 `autopilot` 為 `off`）；其餘一律加「；由 autopilot 串接（`<有效值>`）」，`off` 也要帶（否則 `commit-push-pr` 會退回讀 conventions、自動修檔）。
+參數尾端依來源再加一段：由 `orchestrate-issues` 呼叫 →「；由 orchestrate-issues 調度」（讓 `commit-push-pr` 也維持 `autopilot` 為 `off`）；其餘一律加「；由 autopilot 串接（`<值>`）」：Step 3 有自動定案時 `<值>` 為 `merge`，沒有（退回逐條確認、或有效值不是 `merge`）時為 `off`；`off` 也要帶，否則 `commit-push-pr` 會退回讀 conventions、自動修檔。
 
 追加 comment 只記 commit 與變更；逐條 finding 的處置在 Step 8 另留。記下 push 後的 commit sha。
 
@@ -161,7 +161,7 @@ push 完成（或無變更）後，逐條處理 `sources` 裡有 `thread_id` 的
 | 待討論（Discuss 未定案） | 回覆立場，不 resolve | 同左 |
 
 - 「自己留的」包含 `review-pr` 留的 thread。
-- 他人留的 thread 全部回覆完後，**問過使用者**再 resolve：列出「已修」與「不採納」各幾條，使用者同意哪些就 resolve 哪些。`autopilot` 在 Step 3 生效時（此時只會有 bot thread）：只回覆、不 resolve、不問，在 Step 9 列出由使用者事後處理。
+- 他人留的 thread 全部回覆完後，**問過使用者**再 resolve：列出「已修」與「不採納」各幾條，使用者同意哪些就 resolve 哪些。`autopilot` 在 Step 3 生效時（此時只會有 bot thread）：已修且在 head 驗證過的回覆並 resolve；不採納的只回覆理由、不 resolve；都不問，在 Step 9 列出。
 - 只在總結 comment 或 pre-merge 的 source 沒有 thread，不回覆；處置結果寫在 Step 8 的處置 comment。
 - **單條失敗不中斷**：繼續處理剩下的；全部試完後，把失敗項（thread id、動作、錯誤）列在 Step 9，不默默略過。
 

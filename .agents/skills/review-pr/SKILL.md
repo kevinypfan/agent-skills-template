@@ -119,6 +119,7 @@ findings 格式與嚴重度沿用 `.agents/roles/reviewer.md`：`[嚴重度] 檔
 **狀態規則**：只有「外部 agent 或 `reviewer` 曾對**整個 PR** 成功跑完」才算已跑過。狀態要跨輪傳遞，判讀時回溯**自己留的所有輪次**總結（Step 2 第 1 點的帳號過濾同樣適用）的 Adversarial pass 區段，不能只看上一輪：任一輪記載「外部 agent／reviewer 已於第 N 輪（審至 <sha>）對整個 PR 跑過」就算已跑過。
 - 已跑過 → 不重跑，只有使用者點名要問才再問；增量命中高風險時，由你自己照 `.agents/skills/review-pr/assets/adversarial-prompt.md` 的問法對增量推演，結果寫進 Adversarial pass 區段並註明「本輪增量由主對話自審，外部 agent 未重跑」。
 - 未跑過（所有輪次都未執行、失敗、只跑過增量、或只由主對話自審）→ 本輪觸發條件成立時補跑，對象是**整個 PR**。
+- `adversarial_external` 為 `auto` 時，reviewer 與外部 agent 分開判讀：任一邊跑過就算「已跑過」（不擋收斂、reviewer 不重跑）；但外部 agent 若「未跑過」且沒有「已補問」紀錄、這次也不在冷卻中 → 本輪補問外部一次（整個 PR），結果記成「已於第 N 輪補問（結果）」，之後不論結果都不再問。
 
 做法（依序嘗試，前一個不可用才退下一個）：
 

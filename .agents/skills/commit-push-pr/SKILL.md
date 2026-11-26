@@ -31,7 +31,7 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 ## Step 0: 讀設定
 
-1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `base_branch`、`pr_labels`、`pr_assignee`、`pr_template`、`commit_scopes`、`commit_trailer`、`commit_language`、`verify_commands`、`language`、`autopilot`。
+1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `base_branch`、`pr_labels`、`pr_assignee`、`pr_template`、`commit_scopes`、`commit_trailer`、`commit_language`、`verify_commands`、`language`、`autopilot`、`test_command`、`lint_command`。
 2. 依 `.agents/skills/_tracker/README.md` 判斷 tracker，讀對應 `.agents/skills/_tracker/<tracker>.md`。下文 **[tracker] 動作** 一律查該檔。
 3. `autopilot` 不是 `off` 時讀 `.agents/skills/_autopilot/README.md`，依其「何時生效」判斷本次的有效值；下文寫「`autopilot` 生效時」的地方照該檔做。其中「PR 已存在且不確定是自己的」要在 Step 1 查完 PR、比對作者後才判定，**判定前一律當 `off`**。
 
@@ -122,6 +122,7 @@ git status --short --untracked-files=all | grep -qE '<regex>' && echo MATCH || e
 - `MATCH` → 跑該指令；**fail 就停**，回報錯誤、絕不 commit
 - 全部 `SKIP` 或 `verify_commands` 為空 → 跳過
 - **2.5.0 rebase 移動了 HEAD**：除了上面的比對，另外跑 conventions 的 `test_command` 與 `lint_command`（依改動路徑選對應那列，跟 `fix-issue` Step 3 同一組），派給 `runner` agent 並等結果，綠燈要綁定指紋（`.agents/roles/README.md`「綠燈要綁定內容」）。兩者都沒定義 → 問使用者要跑什麼；使用者說不跑就在回報註明「rebase 後未驗證」。fail 就停，絕不 push
+- **`autopilot` 自動修過檔案**（Step 2）：同上，跑 `test_command` 與 `lint_command`、綠燈綁定指紋；2.5.0 也移動了 HEAD 時只跑一次。兩者都沒定義 → 停下問，不自動略過
 
 ### Step 3: Commit and Push
 
@@ -205,13 +206,13 @@ git push -u origin "$(git branch --show-current)"
 3. 若有留 inline comment，列出留了哪些；有失敗而改併進總結 comment 的，另列哪幾條、原因
 4. 讀擴充點 `.agents/extensions/pre-merge.md`：只看當前 repo 根（`git rev-parse --show-toplevel`），不退到 `~/.agents`；有就照做、沒有就跳過，兩種情況都寫進回報的「擴充點」列。此處只讀出 `###` 標題，不執行任何「怎麼查」指令；本 skill 不等 CI，註明「merge 前由調度者（`orchestrate-issues` 5.3）或人工執行」。
 5. 固定一列：「擴充點：review 已套用／無；pre-merge：<名稱> 未檢查（未執行，merge 前由 orchestrate-issues 5.3 或人工執行）」，每個項目一筆；沒有 pre-merge 寫「pre-merge：無」
-6. `autopilot` 生效、且呼叫端不是 `address-pr-review`（參數不是「回應 review 的追加變更」）→ 回報後直接呼叫 skill `review-pr`，參數：
+6. `autopilot` 生效、且呼叫端不是 `resolve-review`（參數不是「回應 review 的追加變更」）→ 回報後直接呼叫 skill `review-pr`，參數：
 
    ```text
    由 autopilot 串接（<有效值>）；<PR 編號>
    ```
 
-   呼叫端是 `address-pr-review` 時不串接，由它在自己的 Step 9 接下一輪。
+   呼叫端是 `resolve-review` 時不串接，由它在自己的 Step 9 接下一輪。
 
 ## Important Notes
 

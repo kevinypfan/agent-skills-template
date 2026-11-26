@@ -12,7 +12,7 @@ state=${ASK_AGENTS_STATE:-$HOME/.agents/state/agent-cooldown}
 lock="$state.lock"
 now=$(date +%s)
 fmt() { date -d "@$1" '+%Y-%m-%d %H:%M' 2>/dev/null || date -r "$1" '+%Y-%m-%d %H:%M'; }   # GNU 的 -r 是讀檔案 mtime，先試 -d
-local_epoch() { date -j -f '%Y-%m-%d %H:%M' "$1" +%s 2>/dev/null || date -d "$1" +%s 2>/dev/null; }   # macOS / GNU
+local_epoch() { date -j -f '%Y-%m-%d %H:%M:%S' "$1:00" +%s 2>/dev/null || date -d "$1" +%s 2>/dev/null; }   # macOS（補秒數，否則取當下的秒）/ GNU
 mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1"; }   # GNU 的 -f 是檔案系統資訊、會印到 stdout，先試 -c
 live() { [ -f "$state" ] && awk -F'\t' -v n="$now" '$2 > n' "$state" || true; }
 usage() { sed -n '3,7p' "$0" >&2; exit 2; }
@@ -20,11 +20,15 @@ digits() { case "$1" in ''|*[!0-9]*) return 1 ;; esac; [ "${#1}" -le 12 ]; }
 
 rewrite() { # $1=要移除的 agent；$2=要加入的整行（可空）
   mkdir -p "$(dirname "$state")"
-  local i=0 tmp
+  [ -w "$(dirname "$state")" ] || { echo "$(dirname "$state") 不可寫，無法記錄冷卻" >&2; exit 3; }
+  local i=0 tmp m
   until mkdir "$lock" 2>/dev/null; do
-    [ -d "$lock" ] || { echo "無法在 $(dirname "$state") 建立鎖（目錄不可寫？）" >&2; exit 3; }
-    if [ $(( $(date +%s) - $(mtime "$lock") )) -gt 60 ]; then rmdir "$lock" 2>/dev/null || true; continue; fi
-    i=$((i+1)); [ "$i" -ge 50 ] && { echo "等不到鎖 ${lock}（另一個程序持有中）" >&2; exit 3; }
+    i=$((i+1)); [ "$i" -ge 100 ] && { echo "等不到鎖 ${lock}（另一個程序持有中）" >&2; exit 3; }
+    # 持有者可能剛好在這之間放掉鎖：stat 失敗就直接重試。殘留鎖先改名再刪，兩個等待者不會刪到對方剛拿到的鎖。
+    if m=$(mtime "$lock" 2>/dev/null) && [ -n "$m" ] && [ $(( $(date +%s) - m )) -gt 60 ]; then
+      mv "$lock" "$lock.stale.$$" 2>/dev/null && rmdir "$lock.stale.$$" 2>/dev/null
+      continue
+    fi
     sleep 0.1
   done
   trap 'rmdir "${lock}" 2>/dev/null' EXIT
@@ -52,7 +56,7 @@ case "${1:-}" in
         until=$(local_epoch "$v") || usage ;;
       [0-9]:[0-9][0-9]|[0-9][0-9]:[0-9][0-9])
         until=$(local_epoch "$(date +%Y-%m-%d) $v") || usage
-        [ "$until" -gt "$now" ] || until=$((until + 86400)) ;;
+        [ "$until" -gt "$now" ] || until=$((until + 86400)) ;;   # 已過就算明天；DST 切換日會差一小時，冷卻用途可以接受
       *) case "$v" in
            *s) v=${v%s} ;;
            *m) v=${v%m}; mult=60 ;;

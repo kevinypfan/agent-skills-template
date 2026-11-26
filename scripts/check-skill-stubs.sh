@@ -63,7 +63,7 @@ for real in .agents/skills/*/SKILL.md; do
   grep -qx "name: $s" "$real" || { echo "✗ $s: frontmatter 的 name 與目錄名不同（應為 name: ${s}）"; fail=1; }
 done
 # 已改名／移除的 skill：舊名不得再被引用（例如另一條分支 rebase 後帶回來）；刻意保留的提及要在同一行寫「舊名」
-RETIRED_SKILLS="resolve-review"
+RETIRED_SKILLS="address-pr-review"
 for old in $RETIRED_SKILLS; do
   [ -e ".agents/skills/$old" ] && { echo "✗ $old 已退役，卻仍有 .agents/skills/$old/"; fail=1; }
   if hits=$(git grep -nwF "$old" -- '*.md' | grep -v '舊名'); then

@@ -65,7 +65,7 @@ skill 本文**不得**硬編這些值，改值一律改這裡（個人偏好改�
 | `review_fanout` | 超過 10 檔或 diff 超過 1500 行 | | 只管 `review-pr` 內部「何時分組 fan-out 給 `reviewer` agent」；未達門檻由主對話逐檔審 |
 | `adversarial_external` | `auto` | | `review-pr` 的 adversarial pass 怎麼跑：`auto` = 外部 agent（`ask-agents`）與 `reviewer` agent **同時跑**，`reviewer` 回來就能往下，外部晚到就併入、沒到就註明，之後的輪次補問外部一次（外部在冷卻中則只跑 `reviewer`）；`true` = 先外部、不可用才退 `reviewer`（舊預設）；`false` = 不外送，只派 `reviewer`，並在總結註明 |
 | `ask_agents_cooldown` | `5h` | | 外部 agent 額度用完、錯誤訊息又沒給 reset 時間時，`ask-agents` 記下的冷卻時間；冷卻期間不再叫它，直接回報不可用（紀錄與解除見 `ask-agents`） |
-| `autopilot` | `off` | | `fix-issue` → `commit-push-pr` → `review-pr` → `address-pr-review` 這條鏈自己推進到哪裡：`off` = 每個確認點都問；`pr` = 開好 PR 並審一輪後停；`merge` = 循環修到「建議合併」後過 merge 關卡自動 merge。`fix-issue` 的方案 proceed 一律照停。**不照一般優先序**：專案檔與個人檔都有設定時取較保守的（`off` < `pr` < `merge`），讓個人能用 `off` 關掉專案開的 autopilot；細節與仍會停下的情況見 `.agents/skills/_autopilot/README.md` |
+| `autopilot` | `off` | | `fix-issue` → `commit-push-pr` → `review-pr` → `resolve-review` 這條鏈自己推進到哪裡：`off` = 每個確認點都問；`pr` = 開好 PR 並審一輪後停；`merge` = 循環修到「建議合併」後過 merge 關卡自動 merge。`fix-issue` 的方案 proceed 一律照停。**不照一般優先序**：專案檔與個人檔都有設定時取較保守的（`off` < `pr` < `merge`），讓個人能用 `off` 關掉專案開的 autopilot；細節與仍會停下的情況見 `.agents/skills/_autopilot/README.md` |
 | `autopilot_max_rounds` | `3` | | `autopilot` 生效時 `review-pr` 最多跑到第幾輪（PR 上的總輪次）；到了仍未收斂就停下回報。不是正整數就用預設 |
 
 ## 範例（填好的樣子）

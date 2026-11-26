@@ -34,8 +34,9 @@ bash "$c" set codex 99999999999999999999 2>/dev/null; [ $? -eq 2 ] && ok || bad 
 bash "$c" set codex 31d 2>/dev/null; [ $? -eq 2 ] && ok || bad "超過 30 天應拒絕"
 # 平行寫入不能互相蓋掉
 bash "$c" clear codex; bash "$c" clear claude; bash "$c" clear agy
-for a in a1 a2 a3 a4 a5 a6; do bash "$c" set "$a" 600 >/dev/null & done; wait
-[ "$(bash "$c" list | wc -l | tr -d ' ')" = 6 ] && ok || bad "平行 set 6 家應留下 6 筆，實際 $(bash "$c" list | wc -l | tr -d ' ')"
+rc_file="$tmp/rc"; : > "$rc_file"
+for i in $(seq 1 30); do ( bash "$c" set "a$i" 600 >/dev/null 2>&1 || echo "a$i" >> "$rc_file" ) & done; wait
+[ "$(bash "$c" list | wc -l | tr -d ' ')" = 30 ] && [ ! -s "$rc_file" ] && ok || bad "平行 set 30 家應全部成功、留下 30 筆，實際 $(bash "$c" list | wc -l | tr -d ' ') 筆、失敗 $(wc -l < "$rc_file" | tr -d ' ') 個"
 [ -d "$ASK_AGENTS_STATE.lock" ] && bad "鎖沒有釋放" || ok
 # 時刻與前導零
 bash "$c" set codex 08h >/dev/null && [ "$(awk -F'\t' '$1=="codex"{print $2}' "$ASK_AGENTS_STATE")" -ge $((now + 28800)) ] && ok || bad "08h 應以十進位換算（不能當八進位）"

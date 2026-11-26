@@ -11,7 +11,7 @@ Claude Code 與 Codex **共用**的骨架：一組 issue-flow skill（GitLab / G
 │   ├── README.md           ← 寫作規則
 │   ├── _tracker/           ← glab / gh 指令對照、寫入前 secret 掃描（非 skill）
 │   ├── _multiplexer/       ← herdr、hc 等 terminal multiplexer 指令對照（非 skill）
-│   └── create-issue/  create-worktree/  fix-issue/  commit-push-pr/  review-pr/  address-pr-review/  orchestrate-issues/  ask-agents/  clean-disk/
+│   └── create-issue/  create-worktree/  fix-issue/  commit-push-pr/  review-pr/  resolve-review/  orchestrate-issues/  ask-agents/  clean-disk/
 ├── extensions/             ← 擴充點說明與範例（專案在自己 repo 放 context / review / pre-merge.md）
 │   ├── README.md
 │   └── examples/           ← context.md  review.md  pre-merge.md
@@ -91,7 +91,7 @@ bash scripts/install-global.sh --uninstall  # 只移除本腳本裝的項目
 | 角色 | Agent tool，`subagent_type` 填角色名 | `.codex/agents/<r>.toml` 的 agent |
 | 前提 | 無 | Codex 需 trust 此專案才會載入 `.agents/` |
 
-skill 流程：`create-issue` → `create-worktree` → （新 session）`fix-issue` → `commit-push-pr` → `review-pr`（審 PR、發總結 comment；多輪只審增量）→ `address-pr-review`（處理收到的意見：分級、確認、修、推上去、回覆或 resolve thread），之後可再跑 `review-pr` 審下一輪。
+skill 流程：`create-issue` → `create-worktree` → （新 session）`fix-issue` → `commit-push-pr` → `review-pr`（審 PR、發總結 comment；多輪只審增量）→ `resolve-review`（處理收到的意見：分級、確認、修、推上去、回覆或 resolve thread），之後可再跑 `review-pr` 審下一輪。
 
 **調度模式**（一次處理多個 issue）：主 session 呼叫 `orchestrate-issues`，它依檔案重疊分線，用 terminal multiplexer（目前支援 herdr TUI 與 hc（herdr-core，Herdr app 用的）；不在 multiplexer 內時退化成只建 worktree、請你自己開 session）替每條線開 worktree + agent session 跑 `fix-issue`，並監看各線、把關 review / CI / merge、收尾：
 
@@ -101,7 +101,7 @@ orchestrate-issues（主 session）
 ├── lane A: worktree + session → fix-issue → commit-push-pr ─┐
 ├── lane B: worktree + session → fix-issue → commit-push-pr ─┤
 │                                                            ▼
-└── 監看各線 → PR 關卡（review-pr / address-pr-review / CI / merge）→ 收尾（移除 worktree、刪分支）
+└── 監看各線 → PR 關卡（review-pr / resolve-review / CI / merge）→ 收尾（移除 worktree、刪分支）
 ```
 
 merge 預設要問你（`auto_merge`）；yolo mode（`agent_start_args`）預設關閉。首次使用會引導設定這些 key 並記住。

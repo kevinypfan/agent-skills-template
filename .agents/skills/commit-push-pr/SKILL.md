@@ -101,7 +101,7 @@ git rebase --autostash --onto origin/<base> <old-parent>     # 疊分支且呼�
 - **疊分支**：上一條分支被 squash merge 或 rebase 過時，直接 rebase 會重放它原本的 commit、幾乎一定衝突，所以要用 `--onto`。呼叫端沒給 `<old-parent>`，而 `git log --oneline origin/<base>..HEAD` 列出不屬於本分支的 commit → 停下回報，不硬 rebase。
 - `--autostash` 還原時**不保留 staged 狀態**：rebase 前先記下 `git diff --cached --name-only`，rebase 後照清單重新 `git add`（有些閘門比對的是 index，例如產生的檔案要先 stage）。**autostash 還原時衝突 → 停下回報**，附上 `git stash list` 裡那一筆；未 commit 的成果在 stash 裡，不自行解衝突、不 `git stash drop`。
 - rebase 有衝突：需要判斷（兩邊改同一段語意）或解不了 → `git rebase --abort`、停下回報，不硬解。機械性衝突可以在這裡解，但**解過衝突就要把 `git range-diff <OLD 的 base 點>..$OLD origin/<base>..HEAD` 交給使用者確認**後才往下（`<OLD 的 base 點>` 是 `git merge-base $OLD origin/<base>`，用 `--onto` 時是 `<old-parent>`）；Step 2 的確認發生在 rebase 前，涵蓋不到這些內容。
-- **rebase 移動了 HEAD → 呼叫端先前的綠燈作廢**：呼叫端（`fix-issue`、`address-pr-review`）是在舊 base 上跑的測試，`.agents/roles/worktree-fingerprint.sh` 的指紋含 HEAD，也會因此對不上。2.5.1 要重跑驗證。
+- **rebase 移動了 HEAD → 呼叫端先前的綠燈作廢**：呼叫端（`fix-issue`、`resolve-review`）是在舊 base 上跑的測試，`.agents/roles/worktree-fingerprint.sh` 的指紋含 HEAD，也會因此對不上。2.5.1 要重跑驗證。
 - 分支已 push 過：Step 3 用 `git push --force-with-lease=<branch>:$LEASE`（不用 `--force`，也不用不帶參數的 `--force-with-lease`：tracking ref 被別的 fetch 更新過時，不帶參數的 lease 會照樣把遠端蓋掉），且 Step 4 Option A 的追加 comment 要註明「已 rebase 到 origin/<base>」。
 
 #### 2.5.1 Verification Gate（conditional）

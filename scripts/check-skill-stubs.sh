@@ -60,6 +60,15 @@ for real in .agents/skills/*/SKILL.md; do
     && grep -qF "1. 你正在讀的這份若**不在當前 repo 根（\`git rev-parse --show-toplevel\`）之內**，就是全域版——例如 \`~/.agents/skills/$s/SKILL.md\`" "$real" \
     && grep -qF "2. 下文所有 \`.agents/…\` 路徑：repo 根有該檔就用 repo 的，沒有就用 \`~/.agents/…\` 同名檔" "$real" \
     || { echo "✗ $s: 真身缺「## 先決定照哪一份跑」讓位段（或 skill 名 / 路徑規則句不符；範本見 .agents/skills/README.md）"; fail=1; }
+  grep -qx "name: $s" "$real" || { echo "✗ $s: frontmatter 的 name 與目錄名不同（應為 name: ${s}）"; fail=1; }
+done
+# 已改名／移除的 skill：舊名不得再被引用（例如另一條分支 rebase 後帶回來）；刻意保留的提及要在同一行寫「舊名」
+RETIRED_SKILLS="address-pr-review"
+for old in $RETIRED_SKILLS; do
+  [ -e ".agents/skills/$old" ] && { echo "✗ $old 已退役，卻仍有 .agents/skills/$old/"; fail=1; }
+  if hits=$(git grep -nwF "$old" -- '*.md' | grep -v '舊名'); then
+    echo "✗ 引用了已改名／移除的 skill「${old}」（改用新名；刻意保留的提及請在同一行寫「舊名」）："; echo "$hits" | sed 's/^/    /'; fail=1
+  fi
 done
 # _tracker 必備檔
 for f in README.md gitlab.md github.md scan-secrets.sh evals/check-scan-secrets.sh; do
@@ -69,7 +78,7 @@ done
 for f in README.md $(for m in $MULTIPLEXER_CLIS; do echo "$m.md"; done); do
   [ -f ".agents/skills/_multiplexer/$f" ] || { echo "✗ 缺 .agents/skills/_multiplexer/$f"; fail=1; }
 done
-[ -d .agents/roles ] && { for f in worktree-fingerprint.sh evals/check-fingerprint.sh; do [ -f ".agents/roles/$f" ] || { echo "✗ 缺 .agents/roles/$f（runner 與 fix-issue 的內容指紋）"; fail=1; }; done; }
+[ -d .agents/roles ] && { for f in worktree-fingerprint.sh evals/check-fingerprint.sh; do [ -f ".agents/roles/$f" ] || { echo "✗ 缺 .agents/roles/${f}（runner 與 fix-issue 的內容指紋）"; fail=1; }; done; }
 # orchestrate-issues 收尾與 _multiplexer 引用的 clean-disk 檢查 script
 [ -f .agents/skills/clean-disk/scripts/ignored-extras.sh ] || { echo "✗ 缺 .agents/skills/clean-disk/scripts/ignored-extras.sh（orchestrate-issues 收尾用）"; fail=1; }
 [ -f .agents/skills/clean-disk/scripts/active-in.sh ] || { echo "✗ 缺 .agents/skills/clean-disk/scripts/active-in.sh（_multiplexer/hc.md 收尾用）"; fail=1; }

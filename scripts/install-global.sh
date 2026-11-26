@@ -22,6 +22,7 @@
 #   Claude skill：全域 > 專案（全域會蓋掉專案版 → 真身開頭的讓位段改讀 repo 版）
 #   Codex skill ：兩份並列；Codex agent：官方未說明
 # 已存在且不是本腳本裝的目標一律跳過並回報，不覆寫。
+# 指回本 repo 但目標已不存在的 symlink（skill／角色改名或移除後留下的）會被清掉；切回舊分支時再依當時的清單重建。
 # symlink 指向本 repo 的 working tree：本 repo 切到哪個分支，全域就生效哪個版本。
 set -euo pipefail
 repo=$(cd "$(dirname "$0")/.." && pwd -P)
@@ -33,7 +34,7 @@ for a in "$@"; do
     --no-codex) codex=0 ;;
     --quiet) quiet=1 ;;
     -h|--help) sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "未知參數：$a（可用 --apply / --uninstall / --no-codex / --quiet）" >&2; exit 2 ;;
+    *) echo "未知參數：${a}（可用 --apply / --uninstall / --no-codex / --quiet）" >&2; exit 2 ;;
   esac
 done
 
@@ -94,6 +95,16 @@ for p in "${pairs[@]}"; do
       if [ "$mode" = apply ]; then mkdir -p "$(dirname "$dst")"; render "$src" > "$dst"; fi
     fi
   fi
+done
+
+# ---- 指回本 repo 但已不在安裝清單的 symlink（skill／角色改名或移除後留下的斷連結）----
+# --apply 只清目標已不存在的；--uninstall 清所有指回本 repo 的（清單內的上面已移除，剩下的都是舊的）。
+for l in "$HOME/.agents/skills"/* "$HOME/.claude/skills"/* "$HOME/.claude/agents"/*; do
+  [ -L "$l" ] || continue
+  case "$(readlink "$l")" in "$repo"/*) ;; *) continue ;; esac
+  [ "$mode" = uninstall ] || [ ! -e "$l" ] || continue
+  removed "$(tilde "$l")（指回本 repo 但目標已不存在）"
+  [ "$mode" = plan ] || rm "$l"
 done
 
 # ---- ~/.claude/CLAUDE.md 的 import 行 ----
@@ -158,7 +169,7 @@ fi
 changes=$((n_new+n_upd+n_conflict+n_rm))
 [ "$quiet" = 1 ] && [ "$changes" = 0 ] && exit 0
 case "$mode" in
-  plan)      echo; echo "dry-run：將建立 ${n_new}、更新 ${n_upd}、已裝 ${n_ok}、衝突 ${n_conflict}。確認後加 --apply 執行。" ;;
-  apply)     echo; echo "完成：建立 ${n_new}、更新 ${n_upd}、已裝 ${n_ok}、衝突跳過 ${n_conflict}。" ;;
+  plan)      echo; echo "dry-run：將建立 ${n_new}、更新 ${n_upd}、移除 ${n_rm}、已裝 ${n_ok}、衝突 ${n_conflict}。確認後加 --apply 執行。" ;;
+  apply)     echo; echo "完成：建立 ${n_new}、更新 ${n_upd}、移除 ${n_rm}、已裝 ${n_ok}、衝突跳過 ${n_conflict}。" ;;
   uninstall) echo; echo "完成：移除 ${n_rm} 個本腳本安裝的項目。" ;;
 esac

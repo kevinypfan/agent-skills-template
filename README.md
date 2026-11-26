@@ -59,7 +59,7 @@ bash scripts/install-global.sh --uninstall  # 只移除本腳本裝的項目
 
 **派工政策**（`global/AGENT-ROLES.md`，讓主對話主動派 scout / runner…）一併安裝：Claude 端 symlink 到 `~/.claude/AGENT-ROLES.md` 並在 `~/.claude/CLAUDE.md` 加一行 `@AGENT-ROLES.md`；Codex 的 `AGENTS.md` 沒有 import，改寫進 `~/.codex/AGENTS.md` 的標記區塊（檔內其他內容不動，`--uninstall` 只拿掉該區塊）。新增角色時要在政策裡點名，守門會檢查。
 
-**Claude Code 設定**一併安裝：`global/claude/` 的兩個 script symlink 到 `~/.claude/agent-skills-template/`，再用 `jq` 合併進 `~/.claude/settings.json`——`hooks.SubagentStop` 加一筆（sub agent 跑完顯示 `🤖 scout → claude-haiku-… (effort: …)`，讀的是 transcript 裡實際呼叫的 model，派工時用 `model` 覆寫也照實顯示）；`statusLine` 只在沒設定時才加，已有自己的就不動（要換用本 repo 的請先刪掉原設定）。其他設定原樣保留，`--uninstall` 只拿掉這兩筆；`settings.json` 是 symlink（dotfiles）時寫回目標檔、不換掉 symlink。沒有 `jq` 時這部分跳過。改了 `install-global.sh` 或 `global/claude/` 後跑 `bash scripts/test-install-global.sh`（假 HOME，不碰真實的 `~`）。
+**Claude Code 設定**一併安裝：`global/claude/` 的兩個 script symlink 到 `~/.claude/agent-skills-template/`，再用 `jq` 合併進 `~/.claude/settings.json`——`hooks.SubagentStop` 加一筆（sub agent 跑完顯示 `🤖 scout → claude-haiku-… (effort: …)`，讀的是 transcript 裡實際呼叫的 model，派工時用 `model` 覆寫也照實顯示）；`statusLine` 只在沒設定時才加，已有自己的就不動（要換用本 repo 的請先刪掉原設定）。其他設定原樣保留，`--uninstall` 只拿掉這兩筆；`settings.json` 是 symlink（dotfiles）時寫回目標檔、不換掉 symlink。script 不存在時（主 checkout 切到舊分支、別台機器沒裝本 repo）指令會安靜結束，不會每次報錯。改寫 settings.json 時會加鎖並驗證結果是 JSON 物件才寫回；`--uninstall` 清不掉設定時保留 script。沒有 `jq` 時這部分跳過；**不想讓本 repo 碰 settings.json**，在 `~/.agents/conventions.local.md` 設 `claude_settings` 為 `false`（否則手動刪掉的這兩筆，下次 commit 觸發的自動同步會再加回來）。改了 `install-global.sh` 或 `global/claude/` 後跑 `bash scripts/test-install-global.sh`（假 HOME，不碰真實的 `~`）。
 
 **換機器**：clone 本 repo → `git config core.hooksPath .githooks` → `bash scripts/install-global.sh --apply`，就這樣。
 

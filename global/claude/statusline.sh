@@ -22,6 +22,6 @@ model_seg=""
 [ -n "$model" ] && model_seg=" | ${model}"
 
 ctx_seg=""
-[ -n "$used_pct" ] && ctx_seg=" | ctx:$(printf '%.0f' "$used_pct")%"
+[ -n "$used_pct" ] && ctx_seg=" | ctx:$(LC_ALL=C printf '%.0f' "$used_pct")%"
 
 printf "\033[1;33m%s\033[0m%b%s%s" "$cwd_display" "$git_seg" "$model_seg" "$ctx_seg"

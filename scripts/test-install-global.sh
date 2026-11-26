@@ -10,8 +10,8 @@ check() { if eval "$2"; then pass=$((pass+1)); echo "  ok   $1"; else fail=$((fa
 fresh() { H=$(mktemp -d "${TMPDIR:-/tmp}/install-test ${1:-x}.XXXXXX"); tmps+=("$H"); mkdir -p "$H/.claude"; S="$H/.claude/settings.json"; }
 run() { HOME="$H" bash "$inst" --no-codex "$@" 2>&1; }
 trap 'rm -rf "${tmps[@]}"' EXIT
-D='$HOME/.claude/agent-skills-template'
-HOOK="bash \"$D/subagent-model.sh\""; SL="bash \"$D/statusline.sh\""
+HOOK='[ ! -f "$HOME/.claude/agent-skills-template/subagent-model.sh" ] || bash "$HOME/.claude/agent-skills-template/subagent-model.sh"'
+SL='[ ! -f "$HOME/.claude/agent-skills-template/statusline.sh" ] || bash "$HOME/.claude/agent-skills-template/statusline.sh"'
 hooks() { jq -c '[.hooks.SubagentStop[]?.hooks[]?.command]' "$S"; }
 
 echo "1. 全新安裝（沒有 settings.json），HOME 含空白"
@@ -24,11 +24,13 @@ check "statusLine 寫字面 \$HOME" '[ "$(jq -r .statusLine.command "$S")" = "$S
 check "兩個 symlink 指回 repo" '[ "$(readlink "$H/.claude/agent-skills-template/subagent-model.sh")" = "$repo/global/claude/subagent-model.sh" ] && [ "$(readlink "$H/.claude/agent-skills-template/statusline.sh")" = "$repo/global/claude/statusline.sh" ]'
 check "hook 指令在含空白的 HOME 下可執行" '[ "$(echo "{}" | HOME="$H" bash -c "$HOOK"; echo rc=$?)" = "rc=0" ]'
 before=$(cat "$S"); out=$(run --apply)
-check "重跑 idempotent" '[ "$before" = "$(cat "$S")" ] && grep -q "建立 0、更新 0、已裝 [0-9]*、衝突跳過 0" <<<"$out"'
+check "重跑 idempotent" '[ "$before" = "$(cat "$S")" ] && grep -q "建立 0、更新 0、移除 0、已裝 [0-9]*、衝突跳過 0" <<<"$out"'
 check "重跑 --quiet 不出聲" '[ -z "$(run --apply --quiet)" ]'
 run --uninstall >/dev/null
 check "uninstall 拿掉兩筆，剩 {}" '[ "$(jq -c . "$S")" = "{}" ]'
-check "uninstall 拿掉 symlink" '[ ! -L "$H/.claude/agent-skills-template/subagent-model.sh" ] && [ ! -L "$H/.claude/agent-skills-template/statusline.sh" ]'
+check "uninstall 拿掉 symlink 與空目錄" '[ ! -e "$H/.claude/agent-skills-template" ]'
+check "script 不存在時 hook 指令安靜結束" '[ "$(echo "{}" | HOME="$H" bash -c "$HOOK"; echo rc=$?)" = "rc=0" ]'
+check "script 不存在時 statusLine 指令安靜結束" '[ "$(echo "{}" | HOME="$H" bash -c "$SL"; echo rc=$?)" = "rc=0" ]'
 
 echo "2. 既有設定：別的 hook、自己的 statusLine"
 fresh
@@ -50,8 +52,16 @@ check "仍是 symlink，目標檔有寫入" '[ -L "$S" ] && [ "$(jq "[.hooks.Sub
 echo "4. settings.json 指向唯讀檔"
 fresh; mkdir -p "$H/ro"; echo '{}' > "$H/ro/settings.json"; chmod 444 "$H/ro/settings.json"; ln -s "$H/ro/settings.json" "$S"
 out=$(run --apply); rc=$?
-check "不中止、報衝突、不留 tmp" '[ "$rc" = 0 ] && grep -q "不可寫入" <<<"$out" && [ ! -e "$S.tmp" ] && [ "$(cat "$H/ro/settings.json")" = "{}" ]'
+check "不中止、報衝突、不留暫存檔" '[ "$rc" = 0 ] && grep -q "不可寫入" <<<"$out" && [ -z "$(ls "$H/.claude" | grep "settings.json\.")" ] && [ "$(cat "$H/ro/settings.json")" = "{}" ]'
+check "失敗不顯示加入" '! grep -q "加入  ~/.claude/settings.json" <<<"$out"'
 chmod 644 "$H/ro/settings.json"
+
+echo "4b. 已安裝後 settings.json 變唯讀，再 uninstall"
+fresh; run --apply >/dev/null; chmod 444 "$S"
+out=$(run --uninstall)
+check "不謊報移除" '! grep -q "移除  ~/.claude/settings.json" <<<"$out"'
+check "保留兩個 script，不留懸空的 hook" '[ -L "$H/.claude/agent-skills-template/subagent-model.sh" ] && [ -L "$H/.claude/agent-skills-template/statusline.sh" ] && grep -q "保留" <<<"$out"'
+chmod 644 "$S"
 
 echo "5. 目標位置已有別人的檔案"
 fresh; mkdir -p "$H/.claude/agent-skills-template"; echo 'echo mine' > "$H/.claude/agent-skills-template/subagent-model.sh"
@@ -65,8 +75,10 @@ for bad in '{"hooks":[]}' '{"statusLine":"x"}' '{"hooks":{"SubagentStop":{}}}'; 
   fresh; echo "$bad" > "$S"
   out=$(run --apply); rc=$?
   check "不中止：$bad" '[ "$rc" = 0 ] && grep -q "^完成" <<<"$out"'
-  check "失敗不謊報成功：$bad" '! grep -q "建立 [1-9].*衝突跳過 0" <<<"$out" || jq -e "[.hooks.SubagentStop[]?.hooks[]?.command] | length > 0" "$S" >/dev/null'
+  check "沒寫入就不顯示加入：$bad" '! grep -q "加入  ~/.claude/settings.json 的 SubagentStop" <<<"$out" || [ "$(jq -c "[.hooks.SubagentStop[]?.hooks[]?.command]" "$S")" = "$(jq -nc --arg c "$HOOK" "[\$c]")" ]'
 done
+fresh; echo '{"statusLine":"x"}' > "$S"; run --apply >/dev/null
+check "格式不對的 statusLine 也算使用者自己的，不覆寫" '[ "$(jq -r .statusLine "$S")" = x ]'
 
 echo "7. 非法 JSON"
 fresh; echo '{not json' > "$S"
@@ -74,6 +86,31 @@ out=$(run --apply)
 check "不動檔案、報衝突" '[ "$(cat "$S")" = "{not json" ] && grep -q "不是合法的 JSON" <<<"$out"'
 out=$(run --uninstall)
 check "uninstall 只提醒" 'grep -q "未處理" <<<"$out" && ! grep -q "衝突" <<<"$out"'
+
+echo "7b. uninstall 遇到沒有 .hooks 的 SubagentStop 項目"
+fresh; run --apply >/dev/null
+jq '.hooks.SubagentStop += [{"matcher":"x"}, "junk"]' "$S" > "$S.new" && mv "$S.new" "$S"
+out=$(run --uninstall)
+check "本筆移除、其他項目保留" '[ "$(jq -c .hooks.SubagentStop "$S")" = "[{\"matcher\":\"x\"},\"junk\"]" ] && grep -q "移除  ~/.claude/settings.json 的 SubagentStop hook" <<<"$out"'
+
+echo "10. 另一個 install-global.sh 拿著鎖"
+fresh; mkdir "$H/.claude/.agent-skills-template.lock"
+out=$(run --apply)
+check "拿不到鎖就跳過，不建 settings.json" '[ ! -e "$S" ] && grep -q "鎖住" <<<"$out"'
+rmdir "$H/.claude/.agent-skills-template.lock"
+run --apply >/dev/null
+check "鎖釋放後正常安裝、結束後不留鎖" '[ "$(hooks)" = "$(jq -nc --arg c "$HOOK" "[\$c]")" ] && [ ! -e "$H/.claude/.agent-skills-template.lock" ]'
+
+echo "11. conventions.local.md 設 claude_settings: false"
+for form in '| `claude_settings` | `false` | |' 'claude_settings: false'; do
+  fresh; mkdir -p "$H/.agents"; printf '%s\n' "$form" > "$H/.agents/conventions.local.md"
+  out=$(run --apply)
+  check "不碰 settings.json：$form" '[ ! -e "$S" ] && grep -q "claude_settings: false" <<<"$out" && grep -q "衝突跳過 0" <<<"$out"'
+  check "--quiet 不出聲：$form" '[ -z "$(run --apply --quiet)" ]'
+done
+fresh; run --apply >/dev/null; mkdir -p "$H/.agents"; echo 'claude_settings: false' > "$H/.agents/conventions.local.md"
+run --uninstall >/dev/null
+check "opt-out 後 uninstall 仍清掉本腳本的兩筆" '[ "$(jq -c . "$S")" = "{}" ]'
 
 echo "8. hook script"
 fresh; t="$H/t.jsonl"

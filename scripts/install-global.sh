@@ -71,11 +71,113 @@ marker() { echo "# installed-by agent-skills-template/scripts/install-global.sh 
 render() { marker "$1"; cat "$1"; }
 ours_copy() { [ -f "$2" ] && [ ! -L "$2" ] && [ "$(head -n1 "$2")" = "$(marker "$1")" ]; }
 
+# ---- ~/.claude/settings.json：SubagentStop hook 與 statusLine ----
+# 只增刪本腳本那兩筆，其他設定原樣保留。寫回用 cat > 而非 mv：settings.json 是 symlink（dotfiles）時才不會被換成實體檔。
+# 指令寫字面的 "$HOME"（執行時由 shell 展開），dotfiles 跨機器共用、各機 HOME 不同時仍比對得到；
+# script 不存在（主 checkout 切到舊分支、別台機器沒裝本 repo）就安靜結束，不讓每次 sub agent 結束都報錯。
+# 「使用者自己的選擇」（已有別的 statusLine、沒有 jq、claude_settings: false）用 skip：不算衝突、--quiet 不印，否則 git hook 每次 commit 都會吵。
+cs="$HOME/.claude/settings.json"; show_cs="~/.claude/settings.json"; cs_lock="$HOME/.claude/.agent-skills-template.lock"
+hook_cmd='[ ! -f "$HOME/.claude/agent-skills-template/subagent-model.sh" ] || bash "$HOME/.claude/agent-skills-template/subagent-model.sh"'
+sl_cmd='[ ! -f "$HOME/.claude/agent-skills-template/statusline.sh" ] || bash "$HOME/.claude/agent-skills-template/statusline.sh"'
+keep_links=0   # uninstall 時 settings 沒清乾淨 → 保留兩個 script，不留下指向不存在檔案的 hook
+skip() { say "= 跳過  $1"; }
+# 設定指向的檔案是本 repo 的 symlink（dry-run 時則是尚不存在、會被建立）才算數；symlink 段已經報過衝突，這裡不重複計
+ready() { { [ -L "$1" ] && [ "$(readlink "$1")" = "$2" ]; } || { [ "$mode" = plan ] && [ ! -e "$1" ] && [ ! -L "$1" ]; }; }
+# 個人 conventions（~/.agents/conventions.local.md）設 claude_settings 為 false → 不碰 settings.json；表格列與 `key: value` 兩種寫法都認
+settings_opt_out() {
+  local f="$HOME/.agents/conventions.local.md"; [ -f "$f" ] || return 1
+  awk -F'|' '
+    { k = $2; v = $3; gsub(/[ `]/, "", k); gsub(/[ `]/, "", v); if (k == "claude_settings" && v == "false") found = 1 }
+    /^[[:space:]]*claude_settings:[[:space:]]*`?false`?[[:space:]]*$/ { found = 1 }
+    END { exit !found }' "$f"
+}
+# 同時只讓一個 install-global.sh 改 settings.json（例如手動 --apply 碰上 git hook 的自動同步）；拿不到鎖就跳過
+cs_lock_take() {
+  local i=0; mkdir -p "$(dirname "$cs_lock")"
+  until mkdir "$cs_lock" 2>/dev/null; do i=$((i + 1)); [ "$i" -ge 50 ] && return 1; sleep 0.1; done
+  trap 'rmdir "$cs_lock" 2>/dev/null || true' EXIT
+}
+# $1 = 動作描述，其餘參數交給 jq；成功回 0，失敗報衝突並回 1
+cs_write() {
+  local what=$1 tmp; shift
+  if [ -e "$cs" ] && [ ! -w "$cs" ]; then conflict "${show_cs} 不可寫入（${what}），跳過"; return 1; fi
+  if [ ! -s "$cs" ]; then
+    # 讀的時候還有內容、現在卻是空的 → 有別的程式正在寫，不能當成 {} 重寫（會把使用者整份設定清掉）
+    if [ "$cs_empty" = 0 ]; then conflict "${show_cs} 在處理中被清空（${what}），跳過"; return 1; fi
+    mkdir -p "$(dirname "$cs")"; echo '{}' > "$cs"
+  fi
+  tmp=$(mktemp "$cs.XXXXXX") || { conflict "${show_cs} 無法建立暫存檔（${what}），跳過"; return 1; }
+  # jq 讀到空檔會輸出空字串並回傳 0，所以結果一定要驗證是 JSON 物件才寫回
+  if jq "$@" "$cs" > "$tmp" 2>/dev/null && jq -e 'type == "object"' "$tmp" >/dev/null 2>&1 && cat "$tmp" > "$cs"; then
+    rm -f "$tmp"; cs_empty=0; return 0
+  fi
+  rm -f "$tmp"; conflict "${show_cs} 寫入失敗（${what}），跳過"; return 1
+}
+# 型別不符（例如 hooks 是陣列、statusLine 是字串）時視為沒有，不讓 jq 在 set -e 下中止整支腳本
+q_hook='[(.hooks | objects | .SubagentStop | arrays)[]? | objects | (.hooks | arrays)[]? | objects | select(.command == $c)] | length > 0'
+# statusLine 有任何值（就算格式不對）都算使用者自己的，不覆寫；沒有 command 字串時回傳佔位字
+q_sl='.statusLine | if . == null then "" elif type == "object" then ((.command | strings) // "(其他)") else "(其他)" end'
+f_add='.hooks.SubagentStop += [{hooks: [{type: "command", command: $c, timeout: 10}]}]'
+f_rm='
+  .hooks.SubagentStop |= map(
+    if type == "object" and (.hooks | type) == "array"
+    then .hooks |= map(select(type != "object" or .command != $c)) | select((.hooks | length) > 0)
+    else . end)
+  | if (.hooks.SubagentStop | length) == 0 then del(.hooks.SubagentStop) else . end
+  | if (.hooks | length) == 0 then del(.hooks) else . end'
+claude_settings() {
+  if settings_opt_out && [ "$mode" != uninstall ]; then skip "${show_cs}（conventions.local.md 設了 claude_settings: false）"; return 0; fi
+  if ! command -v jq >/dev/null 2>&1; then
+    if [ "$mode" = uninstall ]; then say "! 沒有 jq：${show_cs} 若有本腳本加的 SubagentStop hook / statusLine 請手動刪除，script 先保留"; keep_links=1
+    else skip "${show_cs} 的 hook / statusLine（需要 jq）"; fi
+    return 0
+  fi
+  if [ "$mode" != plan ] && ! cs_lock_take; then
+    conflict "${show_cs} 被另一個 install-global.sh 鎖住；確定沒有在跑就刪掉 $(tilde "$cs_lock")"
+    [ "$mode" = uninstall ] && keep_links=1
+    return 0
+  fi
+  if [ -s "$cs" ] && ! jq -e 'type == "object"' "$cs" >/dev/null 2>&1; then
+    if [ "$mode" = uninstall ]; then say "! ${show_cs} 不是合法的 JSON 物件，未處理，script 先保留"; keep_links=1
+    else conflict "${show_cs} 不是合法的 JSON 物件，跳過"; fi
+    return 0
+  fi
+  cs_empty=1; cs_json='{}'
+  if [ -s "$cs" ]; then cs_empty=0; cs_json=$(cat "$cs"); fi
+  has_hook=$(jq --arg c "$hook_cmd" "$q_hook" <<<"$cs_json")
+  cur_sl=$(jq -r "$q_sl" <<<"$cs_json")
+  if [ "$mode" = uninstall ]; then
+    if [ "$has_hook" = true ]; then
+      if cs_write "移除 SubagentStop hook" --arg c "$hook_cmd" "$f_rm"; then removed "${show_cs} 的 SubagentStop hook"; else keep_links=1; fi
+    fi
+    if [ "$cur_sl" = "$sl_cmd" ]; then
+      if cs_write "移除 statusLine" 'del(.statusLine)'; then removed "${show_cs} 的 statusLine"; else keep_links=1; fi
+    fi
+    return 0
+  fi
+  if ! ready "$hook_dst" "$hook_src"; then skip "${show_cs} 的 SubagentStop hook（$(tilde "$hook_dst") 不是本 repo 的 symlink）"
+  elif [ "$has_hook" = true ]; then ok "${show_cs} 的 SubagentStop hook"
+  elif [ "$mode" = plan ] || cs_write "加入 SubagentStop hook" --arg c "$hook_cmd" "$f_add"; then
+    new "加入  ${show_cs} 的 SubagentStop hook → $(tilde "$hook_dst")"
+  fi
+  if [ -n "$cur_sl" ] && [ "$cur_sl" != "$sl_cmd" ]; then skip "${show_cs} 的 statusLine（已有自己的；要改用本 repo 的請先刪掉該設定）"
+  elif ! ready "$sl_dst" "$sl_src"; then skip "${show_cs} 的 statusLine（$(tilde "$sl_dst") 不是本 repo 的 symlink）"
+  elif [ "$cur_sl" = "$sl_cmd" ]; then ok "${show_cs} 的 statusLine"
+  elif [ "$mode" = plan ] || cs_write "加入 statusLine" --arg c "$sl_cmd" '.statusLine = {type: "command", command: $c}'; then
+    new "加入  ${show_cs} 的 statusLine → $(tilde "$sl_dst")"
+  fi
+}
+# uninstall：先清 settings 再刪 symlink，清不掉就保留 script
+[ "$mode" = uninstall ] && claude_settings
+
 # ---- symlink / copy ----
 for p in "${pairs[@]}"; do
   kind=${p%%|*}; rest=${p#*|}; src=${rest%%|*}; dst=${rest#*|}; show=$(tilde "$dst")
   linked=0; [ -L "$dst" ] && [ "$(readlink "$dst")" = "$src" ] && linked=1
   if [ "$mode" = uninstall ]; then
+    if [ "$keep_links" = 1 ] && [ "$linked" = 1 ] && { [ "$dst" = "$hook_dst" ] || [ "$dst" = "$sl_dst" ]; }; then
+      say "! 保留  ${show}（${show_cs} 裡的設定沒清掉，先不刪）"; continue
+    fi
     if [ "$linked" = 1 ] || { [ "$kind" = copy ] && ours_copy "$src" "$dst"; }; then rm "$dst"; removed "${show}"; fi
     continue
   fi
@@ -113,6 +215,7 @@ for l in "$HOME/.agents/skills"/* "$HOME/.claude/skills"/* "$HOME/.claude/agents
   removed "$(tilde "$l")（指回本 repo 但目標已不存在）"
   [ "$mode" = plan ] || rm "$l"
 done
+[ "$mode" = uninstall ] && { rmdir "$HOME/.claude/agent-skills-template" 2>/dev/null || true; }
 
 # ---- ~/.claude/CLAUDE.md 的 import 行 ----
 cm="$HOME/.claude/CLAUDE.md"; imp="@AGENT-ROLES.md"
@@ -132,60 +235,7 @@ else
   fi
 fi
 
-# ---- ~/.claude/settings.json：SubagentStop hook 與 statusLine ----
-# 只增刪本腳本那兩筆，其他設定原樣保留。寫回用 cat > 而非 mv：settings.json 是 symlink（dotfiles）時才不會被換成實體檔。
-# 指令寫字面的 "$HOME"（執行時由 shell 展開），dotfiles 跨機器共用、各機 HOME 不同時仍比對得到。
-# 「使用者自己的選擇」（已有別的 statusLine、沒有 jq）用 skip：不算衝突、--quiet 不印，否則 git hook 每次 commit 都會吵。
-cs="$HOME/.claude/settings.json"; show_cs="~/.claude/settings.json"
-hook_cmd="bash \"\$HOME/.claude/agent-skills-template/subagent-model.sh\""
-sl_cmd="bash \"\$HOME/.claude/agent-skills-template/statusline.sh\""
-skip() { say "= 跳過  $1"; }
-# 設定指向的檔案是本 repo 的 symlink（dry-run 時則是尚不存在、會被建立）才算數；symlink 段已經報過衝突，這裡不重複計
-ready() { { [ -L "$1" ] && [ "$(readlink "$1")" = "$2" ]; } || { [ "$mode" = plan ] && [ ! -e "$1" ] && [ ! -L "$1" ]; }; }
-cs_write() {
-  if [ -e "$cs" ] && [ ! -w "$cs" ]; then conflict "${show_cs} 不可寫入（$1），跳過"; return 0; fi
-  local what=$1; shift
-  [ -s "$cs" ] || { mkdir -p "$(dirname "$cs")"; echo '{}' > "$cs"; }
-  if jq "$@" "$cs" > "$cs.tmp" 2>/dev/null && cat "$cs.tmp" > "$cs"; then rm -f "$cs.tmp"; return 0; fi
-  rm -f "$cs.tmp"; conflict "${show_cs} 寫入失敗（${what}），跳過"; return 1
-}
-# 型別不符（例如 hooks 是陣列、statusLine 是字串）時視為沒有，不讓 jq 在 set -e 下中止整支腳本
-q_hook='[(.hooks | objects | .SubagentStop | arrays)[]? | (.hooks | arrays)[]? | objects | select(.command == $c)] | length > 0'
-q_sl='(.statusLine | objects | .command | strings) // ""'
-if ! command -v jq >/dev/null 2>&1; then
-  if [ "$mode" = uninstall ]; then say "! 沒有 jq：${show_cs} 若有本腳本加的 SubagentStop hook / statusLine，請手動刪除（script 已移除）"
-  else skip "${show_cs} 的 hook / statusLine（需要 jq）"; fi
-elif [ -s "$cs" ] && ! jq -e 'type == "object"' "$cs" >/dev/null 2>&1; then
-  if [ "$mode" = uninstall ]; then say "! ${show_cs} 不是合法的 JSON 物件，未處理"
-  else conflict "${show_cs} 不是合法的 JSON 物件，跳過"; fi
-else
-  cs_json='{}'; [ -s "$cs" ] && cs_json=$(cat "$cs")
-  has_hook=$(jq --arg c "$hook_cmd" "$q_hook" <<<"$cs_json")
-  cur_sl=$(jq -r "$q_sl" <<<"$cs_json")
-  if [ "$mode" = uninstall ]; then
-    if [ "$has_hook" = true ] && cs_write "移除 SubagentStop hook" --arg c "$hook_cmd" '
-        .hooks.SubagentStop |= map(.hooks |= map(select(.command != $c)) | select(.hooks | length > 0))
-        | if (.hooks.SubagentStop | length) == 0 then del(.hooks.SubagentStop) else . end
-        | if (.hooks | length) == 0 then del(.hooks) else . end'; then
-      removed "${show_cs} 的 SubagentStop hook"
-    fi
-    if [ "$cur_sl" = "$sl_cmd" ] && cs_write "移除 statusLine" 'del(.statusLine)'; then removed "${show_cs} 的 statusLine"; fi
-  else
-    if ! ready "$hook_dst" "$hook_src"; then skip "${show_cs} 的 SubagentStop hook（$(tilde "$hook_dst") 不是本 repo 的 symlink）"
-    elif [ "$has_hook" = true ]; then ok "${show_cs} 的 SubagentStop hook"
-    else
-      new "加入  ${show_cs} 的 SubagentStop hook → $(tilde "$hook_dst")"
-      if [ "$mode" = apply ]; then cs_write "加入 SubagentStop hook" --arg c "$hook_cmd" '.hooks.SubagentStop += [{hooks: [{type: "command", command: $c, timeout: 10}]}]' || true; fi
-    fi
-    if [ -n "$cur_sl" ] && [ "$cur_sl" != "$sl_cmd" ]; then skip "${show_cs} 的 statusLine（已有自己的；要改用本 repo 的請先刪掉該設定）"
-    elif ! ready "$sl_dst" "$sl_src"; then skip "${show_cs} 的 statusLine（$(tilde "$sl_dst") 不是本 repo 的 symlink）"
-    elif [ "$cur_sl" = "$sl_cmd" ]; then ok "${show_cs} 的 statusLine"
-    else
-      new "加入  ${show_cs} 的 statusLine → $(tilde "$sl_dst")"
-      if [ "$mode" = apply ]; then cs_write "加入 statusLine" --arg c "$sl_cmd" '.statusLine = {type: "command", command: $c}' || true; fi
-    fi
-  fi
-fi
+[ "$mode" = uninstall ] || claude_settings   # apply／dry-run：symlink 建好之後才寫設定（ready 要看得到 symlink）
 
 # ---- ~/.codex/AGENTS.md 的管理區塊 ----
 if [ "$codex" = 1 ]; then

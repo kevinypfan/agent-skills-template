@@ -27,11 +27,13 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 - 呼叫端可指定「PR 已存在時採追加 comment」（Option A 有此指定就不再詢問）
 - 呼叫端可指定「只 rebase」：PR 已存在、沒有新變更，只要把分支 rebase 到最新 base 再推上去（`orchestrate-issues` 在 base 前進造成衝突時使用）
 - 疊分支時，呼叫端可給「上一條分支改寫前的 head」（`<old-parent>`）：上一條分支被 squash merge 或 rebase 過時，Step 2.5.0 用 `--onto` 只搬本分支自己的 commit
+- 呼叫端註明「由 orchestrate-issues 調度」或「由 autopilot 串接（`<值>`）」時，影響 `autopilot` 的有效值（見 Step 0 第 3 點）
 
 ## Step 0: 讀設定
 
-1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `base_branch`、`pr_labels`、`pr_assignee`、`pr_template`、`commit_scopes`、`commit_trailer`、`commit_language`、`verify_commands`、`language`。
+1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `base_branch`、`pr_labels`、`pr_assignee`、`pr_template`、`commit_scopes`、`commit_trailer`、`commit_language`、`verify_commands`、`language`、`autopilot`。
 2. 依 `.agents/skills/_tracker/README.md` 判斷 tracker，讀對應 `.agents/skills/_tracker/<tracker>.md`。下文 **[tracker] 動作** 一律查該檔。
+3. `autopilot` 不是 `off` 時讀 `.agents/skills/_autopilot/README.md`，依其「何時生效」判斷本次的有效值；下文寫「`autopilot` 生效時」的地方照該檔做。
 
 ## Workflow
 
@@ -61,6 +63,8 @@ git status --short
 2. 根據使用者確認的項目修正，跳過不想改的
 3. **Review untracked files**：哪些該 commit、哪些該 ignore
 4. **使用者確認所有想修的都修完**才進 Step 2.5
+
+`autopilot` 生效時：清單照樣列出，修法明確、不擴大範圍的直接修，untracked 檔明顯屬於本次改動的才 stage、其餘不 commit 並列在回報；要擴大範圍、改對外契約、或有取捨的項目 → 停下照上面的流程問使用者。**自動修過檔案**就要在 commit 前派 `runner` 重跑 `test_command` 與 `lint_command`，綠燈綁定指紋（兩者都沒定義 → 停下問；2.5.0 因 rebase 已重跑過就不重複）。
 
 ### Step 2.5: Rebase 到最新 base，再跑 Verification Gate
 
@@ -146,7 +150,7 @@ git push -u origin "$(git branch --show-current)"
 
 #### Option A: PR 已存在
 
-呼叫端已指定採追加 comment → 直接採用，不再詢問；否則**詢問使用者**要：
+呼叫端已指定採追加 comment、或 `autopilot` 生效 → 直接採追加 comment，不再詢問；否則**詢問使用者**要：
 - **追加 comment**（預設，適合小修正 / review 回應）→ **[tracker] 留 PR 總結 comment**，內容：
 
   ```markdown
@@ -201,14 +205,21 @@ git push -u origin "$(git branch --show-current)"
 3. 若有留 inline comment，列出留了哪些；有失敗而改併進總結 comment 的，另列哪幾條、原因
 4. 讀擴充點 `.agents/extensions/pre-merge.md`：只看當前 repo 根（`git rev-parse --show-toplevel`），不退到 `~/.agents`；有就照做、沒有就跳過，兩種情況都寫進回報的「擴充點」列。此處只讀出 `###` 標題，不執行任何「怎麼查」指令；本 skill 不等 CI，註明「merge 前由調度者（`orchestrate-issues` 5.3）或人工執行」。
 5. 固定一列：「擴充點：review 已套用／無；pre-merge：<名稱> 未檢查（未執行，merge 前由 orchestrate-issues 5.3 或人工執行）」，每個項目一筆；沒有 pre-merge 寫「pre-merge：無」
+6. `autopilot` 生效、且呼叫端不是 `address-pr-review`（參數不是「回應 review 的追加變更」）→ 回報後直接呼叫 skill `review-pr`，參數：
+
+   ```text
+   由 autopilot 串接（<有效值>）；<PR 編號>
+   ```
+
+   呼叫端是 `address-pr-review` 時不串接，由它在自己的 Step 9 接下一輪。
 
 ## Important Notes
 
 - **Always do self-review first**
 - PR 內文語言依 `language`；**commit message 語言依 `commit_language`**，格式一律 Conventional Commits `type(scope): description`
 - **Target branch 預設 `base_branch`**，使用者可覆蓋
-- **Never skip the review step** — push 前要使用者確認
+- **Never skip the review step** — push 前要使用者確認；`autopilot` 生效時照 `_autopilot` 自動處理，自審本身仍要做
 - **Rebase 先於 gate**：新分支 push 前先 rebase 到 `origin/<base>`；已 push 的分支只在衝突、需更新或呼叫端「只 rebase」時才 rebase，先確認遠端沒有領先，再用帶 sha 的 `--force-with-lease=<branch>:<sha>`；衝突需要判斷、autostash 還原衝突、lease 被擋 → 停下回報
 - **Verification gate**：`verify_commands` 有命中就必須綠才 commit；rebase 移動了 HEAD 就另跑 `test_command`／`lint_command`，綠燈對的是 rebase 後的內容
-- **PR 已存在**：問使用者要更新描述還是追加 comment；小變更預設 comment
+- **PR 已存在**：問使用者要更新描述還是追加 comment；小變更預設 comment；`autopilot` 生效時直接追加 comment
 - **Staging**：永遠明列檔案，禁止 `git add -u` / `git add .`

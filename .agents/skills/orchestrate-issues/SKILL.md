@@ -152,6 +152,7 @@ You **MUST** consider the user input before proceeding. The user input may conta
    - **疊分支規則**（有才寫）：本分支從哪個分支開、`commit-push-pr` 的 target branch、「base 分支 merge 後 PR base 會由主 session 改回 `base_branch`」
    - **關閉 issue 的方式**（issue 拆成多個 PR 時必寫）：「本 PR 只完成一部分，PR 內文與 commit message 只寫 `Refs #<N>`，不得出現自動關閉關鍵字緊接 `#<N>`（見 `_tracker/<tracker>.md`『自動關閉關鍵字』）」
    - **rebase**：「`commit-push-pr` 建 PR 前會先 rebase 到 `origin/<base>`（Step 2.5.0）；衝突照該步的門檻：需要判斷就停下回報，解過的衝突要給確認」
+   - 「由 orchestrate-issues 調度」：線內的 `autopilot` 一律視為 `off`，review 與 merge 由主 session 把關（見 `.agents/skills/_autopilot/README.md`）
    - 「方案確認、self-review 等需要決定的點照 `fix-issue` 流程停下等回覆」
 4. **確認指令真的送出**：[multiplexer] 查狀態，幾秒內沒變 `working` → [multiplexer] 讀 agent 畫面；輸入框殘留文字未送出就 [multiplexer] 送按鍵（選單、Enter、Esc）送 Enter。
    - multiplexer 把第 2、3 點合成一個動作（啟動時就帶第一則指令）時，先組好第 3 點的指令再啟動；送出與否的判斷依據（turn 是否前進、首次信任對話框）照該 multiplexer 檔的「確認真的送出」，不要啟動後再重送一次。

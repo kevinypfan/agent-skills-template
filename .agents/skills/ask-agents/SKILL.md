@@ -57,17 +57,21 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 high reasoning 可能跑好幾分鐘，一律背景執行；要問多家時**同一則訊息裡一起發**。
 
+**呼叫前先查冷卻**：每個要問的 agent 先用 Bash 執行 `bash .agents/skills/ask-agents/scripts/cooldown.sh check <agent>`（`<agent>` = `codex` / `claude` / `agy`）。exit 1 → 這家還在額度冷卻中，**不呼叫**，把它印出的那行（冷卻到何時、原因）當作「不可用」回報給呼叫端；全部要問的都在冷卻中就直接結束，讓呼叫端走 fallback。使用者說額度回來了 → `cooldown.sh clear <agent>`。
+
+**額度用完時記冷卻**：回覆檔是空的或沒產生，且 log（下面各指令的 `2>` 輸出）出現 usage limit／quota／rate limit／credit 一類字樣 → 執行 `cooldown.sh set <agent> <時間> "<錯誤摘要一句>"`。log 有寫何時恢復：「try again in 3 hours」直接寫成 `3h`，「resets at 14:00」換算成 `@<epoch>`；沒寫就用 conventions 的 `ask_agents_cooldown`（預設 `5h`，script 直接接受這種寫法）。其他失敗（網路、model not supported、prompt 問題）不記冷卻。
+
 **codex**（在 Claude Code 裡預設必問）：
 
 ```bash
 codex exec --sandbox read-only --skip-git-repo-check \
   -m gpt-6-astra -c model_reasoning_effort=high \
   -o "$SCRATCHPAD/ask-agents/codex-answer.md" \
-  - < "$SCRATCHPAD/ask-agents/prompt.md"
+  - < "$SCRATCHPAD/ask-agents/prompt.md" > "$SCRATCHPAD/ask-agents/codex-log.txt" 2>&1
 ```
 
-- `-` = 從 stdin 讀 prompt；`-o` 把**乾淨的最終回覆**寫到檔案（stdout 混著 thinking 與 token 統計，不要從那裡撈答案）
-- **判斷有沒有答案要看檔案內容，不要看 exit code**：額度耗盡時 codex 常常 exit 0，但 `-o` 檔是空的或根本沒產生。空的就當 codex 不可用，回報給呼叫端決定 fallback；**不要重試 codex**，額度不會因為再送一次就回來（model not supported 是例外，見「常見陷阱」的 model fallback）
+- `-` = 從 stdin 讀 prompt；`-o` 把**乾淨的最終回覆**寫到檔案（stdout 混著 thinking 與 token 統計，導到 `codex-log.txt` 只用來判斷失敗原因，不要從那裡撈答案）
+- **判斷有沒有答案要看檔案內容，不要看 exit code**：額度耗盡時 codex 常常 exit 0，但 `-o` 檔是空的或根本沒產生。空的就當 codex 不可用，看 `codex-log.txt` 判斷要不要記冷卻（見上），回報給呼叫端決定 fallback；**不要重試 codex**，額度不會因為再送一次就回來（model not supported 是例外，見「常見陷阱」的 model fallback）
 
 **claude**（在 Codex 裡預設必問）：
 
@@ -77,7 +81,8 @@ claude -p --model fable --effort high \
   --allowedTools "Bash(git diff:*)" "Bash(git log:*)" "Bash(git show:*)" "Bash(rg:*)" "Bash(sed -n:*)" \
   --permission-mode dontAsk \
   --no-session-persistence \
-  < "$SCRATCHPAD/ask-agents/prompt.md" > "$SCRATCHPAD/ask-agents/claude-answer.md"
+  < "$SCRATCHPAD/ask-agents/prompt.md" > "$SCRATCHPAD/ask-agents/claude-answer.md" \
+  2> "$SCRATCHPAD/ask-agents/claude-log.txt"
 ```
 
 - `-p` 從 stdin 讀 prompt，預設 text 輸出**只有最終回覆**（無 thinking），直接重導向即可
@@ -90,7 +95,7 @@ claude -p --model fable --effort high \
 ```bash
 agy --model gemini-3.1-pro-high --sandbox=true --print-timeout 15m \
   -p "$(cat "$SCRATCHPAD/ask-agents/prompt.md")" \
-  > "$SCRATCHPAD/ask-agents/agy-answer.md" 2>&1
+  > "$SCRATCHPAD/ask-agents/agy-answer.md" 2> "$SCRATCHPAD/ask-agents/agy-log.txt"
 ```
 
 - ⚠ **所有 flag 必須在 prompt 之前**：agy 是 Go 式 flag 解析，第一個 positional argument 之後的 flag 全部**靜默忽略**

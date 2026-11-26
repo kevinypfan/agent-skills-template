@@ -20,4 +20,8 @@ if git diff --cached --name-only | grep -qE "$guard"; then
   if grep -qE '^\.agents/skills/_tracker/(scan-secrets\.sh|evals/check-scan-secrets\.sh)$' "$t/staged"; then
     bash .agents/skills/_tracker/evals/check-scan-secrets.sh || exit 1
   fi
+  # 動到外部 agent 冷卻紀錄就跑它的斷言測試
+  if grep -qE '^\.agents/skills/ask-agents/(scripts/cooldown\.sh|evals/check-cooldown\.sh)$' "$t/staged"; then
+    bash .agents/skills/ask-agents/evals/check-cooldown.sh || exit 1
+  fi
 fi

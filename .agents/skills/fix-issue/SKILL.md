@@ -25,7 +25,7 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 ## Step 0: 讀設定
 
-1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `base_branch`、`test_command`、`lint_command`、`commit_language`、`language`。
+1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `base_branch`、`test_command`、`lint_command`、`commit_language`、`language`、`autopilot`。`autopilot` 不是 `off` 時讀 `.agents/skills/_autopilot/README.md`，依其「何時生效」判斷本次的有效值（被 `orchestrate-issues` 調度時為 `off`）；本 skill 的 Step 2d 方案確認不受它影響，一律照停。
 2. 依 `.agents/skills/_tracker/README.md` 判斷 tracker，讀對應 `.agents/skills/_tracker/<tracker>.md`。
 
 ## Workflow
@@ -91,13 +91,15 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 ### Step 4: 呼叫 skill `commit-push-pr`
 
-呼叫 `commit-push-pr` 前，先向使用者列出建議更新的 context 文件（這次學到的新領域知識，含文件與要補的重點）；使用者同意、且在本次範圍內，就一起改。
+呼叫 `commit-push-pr` 前，先向使用者列出建議更新的 context 文件（這次學到的新領域知識，含文件與要補的重點）；使用者同意、且在本次範圍內，就一起改。`autopilot` 生效時：本次範圍內的直接一起改，範圍外的列在回報，不等回覆。
 
 測試通過後，呼叫 skill `commit-push-pr`，參數：
 
 ```
 關聯 issue #<issue_number>，target branch: <base_branch>
 ```
+
+參數尾端依情況再加一段：被 skill `orchestrate-issues` 調度時加「；由 orchestrate-issues 調度」（`commit-push-pr` 因此不自動推進，PR 關卡由調度者負責）；`autopilot` 生效時加「；由 autopilot 串接（`<有效值>`）」。
 
 commit-push-pr 會處理：self-review → 驗證閘門 → staging → commit → push → 建立 PR。
 

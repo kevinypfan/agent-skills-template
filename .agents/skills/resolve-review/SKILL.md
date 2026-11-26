@@ -54,9 +54,9 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 ## Step 0: 讀設定與判斷來源
 
-1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `language`、`test_command`、`lint_command`。
+1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `language`、`test_command`、`lint_command`、`autopilot`。`autopilot` 不是 `off` 時讀 `.agents/skills/_autopilot/README.md`，依其「何時生效」判斷本次是否生效；下文寫「`autopilot` 生效時」的地方照該檔做。
 2. 依 `.agents/skills/_tracker/README.md` 判斷 tracker，讀對應 `.agents/skills/_tracker/<tracker>.md`。下文 **[tracker] 動作** 一律查該檔。
-3. 解析使用者參數。兩種串接格式：`由 review-pr 呼叫；<PR>，第 <N> 輪`、`由 orchestrate-issues 呼叫；<PR>，第 <N> 輪；只處理：<id 清單>`。參數已給 PR 編號與輪次：**直接採用，不重新找 PR、不重掃輪次**；其餘（thread、總結內容、head sha）一律即時取，不信任呼叫端轉述。有「只處理」時，Step 1 照常收集，Step 2 起只處理清單內的 id，清單外的在回報註明「不在指定範圍」，不分級、不回覆；id 在收集結果裡找不到也要回報。
+3. 解析使用者參數。兩種串接格式：`由 review-pr 呼叫；<PR>，第 <N> 輪`（autopilot 串接時尾端多「；由 autopilot 串接（`<值>`）」；沒有這段標記就是使用者手動選的，`autopilot` 為 `off`）、`由 orchestrate-issues 呼叫；<PR>，第 <N> 輪；只處理：<id 清單>`。參數已給 PR 編號與輪次：**直接採用，不重新找 PR、不重掃輪次**；其餘（thread、總結內容、head sha）一律即時取，不信任呼叫端轉述。有「只處理」時，Step 1 照常收集，Step 2 起只處理清單內的 id，清單外的在回報註明「不在指定範圍」，不分級、不回覆；id 在收集結果裡找不到也要回報。
 
 ## Step 1: 收集並統一成 finding
 
@@ -116,9 +116,11 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 > 自審串接過來時也不全自動：仍呈現完整清單，一次確認。
 
+`autopilot` 為 `merge` 且生效時：照 `_autopilot` 的表自動定案（Must、Should 修；Skip 不採納；Discuss 只拿那幾條問使用者），仍逐條呈現。要處理的 finding 有任何一個 source 是**他人（人，不是 bot）留的** → 本次退回上面的逐條確認，並在回報註明 autopilot 因此暫停。
+
 ## Step 4: 實作計畫
 
-列出計畫（`language`）並等使用者確認：每項對應哪個 finding id、改哪些檔與做法、驗證方式（`test_command`、`lint_command`）、風險。使用者要求調整就改完重列。
+列出計畫（`language`）並等使用者確認：每項對應哪個 finding id、改哪些檔與做法、驗證方式（`test_command`、`lint_command`）、風險。使用者要求調整就改完重列。`autopilot` 在 Step 3 生效時：呈現計畫後直接進 Step 5，不等確認。
 
 ## Step 5: 實作
 
@@ -138,6 +140,8 @@ push 前重新 **[tracker] 看 PR（JSON）**，比對 head 是否仍是 Step 1 
 ```text
 PR 已存在，採追加 comment；這是回應 review 的追加變更；PR <編號>，第 <N> 輪；變更對應 finding：<id 清單>；pre-merge 項目：<名稱與處理結果，沒有就省略>
 ```
+
+參數尾端依來源再加一段：由 `orchestrate-issues` 呼叫 →「；由 orchestrate-issues 調度」（讓 `commit-push-pr` 也維持 `autopilot` 為 `off`）；`autopilot` 在 Step 3 生效 →「；由 autopilot 串接（merge）」。
 
 追加 comment 只記 commit 與變更；逐條 finding 的處置在 Step 8 另留。記下 push 後的 commit sha。
 
@@ -193,11 +197,11 @@ pre-merge 未檢查：<名稱>（<原因>）
 3. **處置結果 comment** 的 URL（留失敗要說明）；**thread 處置統計**：已修並 resolve／已修只回覆／不採納並 resolve／不採納只回覆／待討論／回覆或 resolve 失敗（逐條列出失敗項）。他人 thread 使用者決定不 resolve 的也列出。
 4. 測試與 lint 的指令與結果。
 5. 固定一列：「擴充點：context：無（本 skill 不讀）；review 已套用／無；pre-merge：<名稱> 通過|未通過|未檢查（綁定 head `<7 碼 sha>`，push 後未重查，merge 前由 orchestrate-issues 5.3 或人工重查），沒有就寫無」；未檢查項要列出原因。
-6. 提示：head 已更新，可再呼叫 skill `review-pr` 審下一輪（只審增量）。
+6. 提示：head 已更新，可再呼叫 skill `review-pr` 審下一輪（只審增量）。`autopilot` 在 Step 3 生效、且本次有 push 時改為直接呼叫 skill `review-pr`，參數 `由 autopilot 串接（merge）；<PR 編號>`；沒有 push（全部不做）就停，交給使用者決定。
 
 ## Important Notes
 
-- **先討論、後動手**；使用者沒確認的修改不做、resolve 他人 thread 沒問過不做。
+- **先討論、後動手**；使用者沒確認的修改不做、resolve 他人 thread 沒問過不做。`autopilot: merge` 只代替「自己與 bot 的意見」的確認，Discuss 與他人意見仍要問。
 - thread 與總結 comment 取不到都停下回報，不拿部分結果繼續；pre-merge 查不到或尚無結果記為未檢查，不停下。
 - 處置結果 comment（Step 8）一律留；「已修」的聲稱不能取代在 head 讀 code 驗證。
 - 他人 thread 只回覆，resolve 要問；自己留的已修與不採納都 resolve，待討論的不 resolve。

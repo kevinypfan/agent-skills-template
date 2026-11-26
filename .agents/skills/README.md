@@ -3,7 +3,7 @@
 本目錄是 repo-local skill 的**唯一真相**（[Agent Skills](https://agentskills.io) 標準 `SKILL.md`）。
 - **Codex** 原生掃 `.agents/skills/`，直接讀這裡（呼叫 `$skill-name`）。
 - **Claude Code** 只讀 `.claude/skills/`，那裡每個 skill 是一份薄 stub（呼叫 `/skill-name`）——**由 `scripts/generate-skill-stubs.sh` 產生、勿手改**：frontmatter 逐字複製 + `$ARGUMENTS` 轉交 + 一句「Read `.agents/skills/<s>/SKILL.md` 照做」。
-- `_` 開頭目錄（`_tracker/`、`_multiplexer/`）**不是 skill**，是給 skill 查的共用資料，沒有 `SKILL.md`。
+- `_` 開頭目錄（`_tracker/`、`_multiplexer/`、`_autopilot/`）**不是 skill**，是給 skill 查的共用資料，沒有 `SKILL.md`。
 
 ## 目前內容（issue-flow）
 
@@ -19,7 +19,7 @@
 | `ask-agents` | 打包問題給 codex / agy 拿第二意見 | 獨立 |
 | `clean-disk` | 掃根目錄下所有 repo 的 worktree／可重建產物／全域快取，script 分三級（可刪／要看／保留），確認後刪並回報釋放空間 | 獨立；補 `orchestrate-issues` 收尾漏掉的 |
 
-專案差異全在 `.agents/conventions.md`（個人偏好放 `~/.agents/conventions.local.md`；repo 沒有時用全域版的推斷規則，優先序見該檔）；tracker（GitLab / GitHub）差異全在 `_tracker/`；terminal multiplexer（herdr、hc；`none` 時退化成只建 worktree）差異全在 `_multiplexer/`。
+專案差異全在 `.agents/conventions.md`（個人偏好放 `~/.agents/conventions.local.md`；repo 沒有時用全域版的推斷規則，優先序見該檔）；tracker（GitLab / GitHub）差異全在 `_tracker/`；terminal multiplexer（herdr、hc；`none` 時退化成只建 worktree）差異全在 `_multiplexer/`；`fix-issue` → `commit-push-pr` → `review-pr` → `address-pr-review` 能自己推進到哪裡（conventions 的 `autopilot`）的規則在 `_autopilot/`。
 委派角色（scout / runner / reviewer / worker / architect）在 `.agents/roles/`，機制相同、stub 手寫；skill 本文提到派工只寫「派給 `<role>` agent」。
 
 ## 寫作規則（標 ✅ 者由 `scripts/check-skill-stubs.sh` 在 pre-commit 強制；其餘人工審）

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 印出 worktree 目前內容的指紋（一行 hash）：已追蹤檔相對 HEAD 的改動 + 未追蹤（未 ignore）項目的路徑與內容。
+# 印出 worktree 目前內容的指紋（一行 hash）：HEAD 的 sha + 已追蹤檔相對 HEAD 的改動 + 未追蹤（未 ignore）項目的路徑與內容。
 # 用途：runner 在測試前後各算一次，主線 commit 前再算一次；三者一致，綠燈才算測到要 commit 的內容。
 # `git status` 做不到這件事：已是 modified 的檔案再被改一次，status 前後完全一樣。
 # 唯讀：hash-object 不加 -w，不寫入任何 object；ignored 的建置產物不計入。
@@ -12,6 +12,7 @@ git rev-parse --verify -q HEAD >/dev/null || { echo "worktree-fingerprint：HEAD
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 : > "$tmp/files"
 {
+  printf 'HEAD\t%s\n' "$(git rev-parse HEAD)"   # rebase／reset 換了 HEAD 時，未 commit 的改動可能完全一樣，指紋仍要不同
   git diff HEAD --binary
   git ls-files -o --exclude-standard -z | while IFS= read -r -d '' p; do
     q=${p%/}

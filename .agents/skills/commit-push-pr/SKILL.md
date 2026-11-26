@@ -25,6 +25,8 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 - Related issue number
 - Additional context for the PR description
 - 呼叫端可指定「PR 已存在時採追加 comment」（Option A 有此指定就不再詢問）
+- 呼叫端可指定「只 rebase」：PR 已存在、沒有新變更，只要把分支 rebase 到最新 base 再推上去（`orchestrate-issues` 在 base 前進造成衝突時使用）
+- 疊分支時，呼叫端可給「上一條分支改寫前的 head」（`<old-parent>`）：上一條分支被 squash merge 或 rebase 過時，Step 2.5.0 用 `--onto` 只搬本分支自己的 commit
 
 ## Step 0: 讀設定
 
@@ -46,6 +48,8 @@ git status --short
 
 ### Step 2: Self-Review (IMPORTANT)
 
+呼叫端指定「只 rebase」且 Step 1 確認工作樹乾淨、PR 已存在 → 跳過本步的審查，直接 Step 2.5（沒有新變更可審）。**push 前的確認不跳過**：Step 3 push 前列出 rebase 前後的 head、`<base>`、有沒有用 `--onto`、有沒有解過衝突（解過的附 2.5.0 的 `range-diff`），等使用者確認（`orchestrate-issues` 的線上由主 session 確認）才 force push。工作樹不乾淨或 PR 不存在 → 停下回報，不猜呼叫端的意思。
+
 先對所有變更做一次審查（環境若有內建的 simplify / review 類 skill 可呼叫它；沒有就自己逐項過），四個角度：
 - **Reuse** — 是否有現有工具函式可取代新寫的 code
 - **Quality** — 冗餘狀態、copy-paste、leaky abstraction、不必要的註解
@@ -58,7 +62,49 @@ git status --short
 3. **Review untracked files**：哪些該 commit、哪些該 ignore
 4. **使用者確認所有想修的都修完**才進 Step 2.5
 
-### Step 2.5: Verification Gate（conditional）
+### Step 2.5: Rebase 到最新 base，再跑 Verification Gate
+
+#### 2.5.0 必要時 rebase 到 `origin/<base>`（在 commit／push 前）
+
+> **為什麼**：base 在分支開出後可能又 merge 了別的 PR（尤其改同一段文件的）；衝突若拖到 PR 關卡才發現，review 與驗證都已做完，rebase 後 head 變了還要重審。新分支在第一次 push 前先跟上 base；已 push 的分支 rebase 會改寫歷史、讓下一輪 review 退回全量，所以只在真的需要時做。
+
+**`<base>`**：Step 1 查到 PR 已存在 → 一律用該 PR 的 target branch（呼叫端給的 target 只用在建新 PR；疊分支的 PR base 可能已被調度者改回 `base_branch`，呼叫端的值會過期）；PR 不存在 → 使用者指定的 target branch，沒指定用 conventions 的 `base_branch`。
+
+**何時 rebase**：
+
+- PR 不存在：base 有前進就 rebase（分支已 push 過但還沒開 PR 時，照下面的 lease 規則）。
+- PR 已存在：只有呼叫端指定「只 rebase」，或 **[tracker] 看 PR 可否合併** 顯示衝突／需更新分支（GitHub `CONFLICTING`、`mergeStateStatus` 為 `DIRTY` 或 `BEHIND`；GitLab `has_conflicts` 或 `need_rebase`；`UNKNOWN` 隔幾秒再查）時才 rebase，其餘跳過。
+
+```bash
+git fetch origin <base>                    # 失敗（例如疊分支的上一條分支已刪）→ 停下回報
+git rev-list --count HEAD..origin/<base>   # 0 → base 沒前進，跳過 rebase（不產生空 rebase）
+```
+
+**分支已 push 過：先確認遠端沒有本地沒有的 commit，並記下 lease**
+
+```bash
+git fetch origin <branch>
+LEASE=$(git rev-parse origin/<branch>)     # Step 3 的 --force-with-lease 用這個 sha
+git rev-list --count HEAD..$LEASE          # 非 0 → 停下回報，不 rebase、不 push
+```
+
+遠端領先（網頁上 apply 的 suggestion、別人 push、`gh pr update-branch`／`glab mr rebase` 在伺服器端改過分支）時，rebase 後強推會把那些 commit 蓋掉；交給使用者決定怎麼整合。
+
+**rebase**
+
+```bash
+OLD=$(git rev-parse HEAD)
+git rebase --autostash origin/<base>                         # 一般情況
+git rebase --autostash --onto origin/<base> <old-parent>     # 疊分支且呼叫端給了 <old-parent>
+```
+
+- **疊分支**：上一條分支被 squash merge 或 rebase 過時，直接 rebase 會重放它原本的 commit、幾乎一定衝突，所以要用 `--onto`。呼叫端沒給 `<old-parent>`，而 `git log --oneline origin/<base>..HEAD` 列出不屬於本分支的 commit → 停下回報，不硬 rebase。
+- `--autostash` 還原時**不保留 staged 狀態**：rebase 前先記下 `git diff --cached --name-only`，rebase 後照清單重新 `git add`（有些閘門比對的是 index，例如產生的檔案要先 stage）。**autostash 還原時衝突 → 停下回報**，附上 `git stash list` 裡那一筆；未 commit 的成果在 stash 裡，不自行解衝突、不 `git stash drop`。
+- rebase 有衝突：需要判斷（兩邊改同一段語意）或解不了 → `git rebase --abort`、停下回報，不硬解。機械性衝突可以在這裡解，但**解過衝突就要把 `git range-diff <OLD 的 base 點>..$OLD origin/<base>..HEAD` 交給使用者確認**後才往下（`<OLD 的 base 點>` 是 `git merge-base $OLD origin/<base>`，用 `--onto` 時是 `<old-parent>`）；Step 2 的確認發生在 rebase 前，涵蓋不到這些內容。
+- **rebase 移動了 HEAD → 呼叫端先前的綠燈作廢**：呼叫端（`fix-issue`、`address-pr-review`）是在舊 base 上跑的測試，`.agents/roles/worktree-fingerprint.sh` 的指紋含 HEAD，也會因此對不上。2.5.1 要重跑驗證。
+- 分支已 push 過：Step 3 用 `git push --force-with-lease=<branch>:$LEASE`（不用 `--force`，也不用不帶參數的 `--force-with-lease`：tracking ref 被別的 fetch 更新過時，不帶參數的 lease 會照樣把遠端蓋掉），且 Step 4 Option A 的追加 comment 要註明「已 rebase 到 origin/<base>」。
+
+#### 2.5.1 Verification Gate（conditional）
 
 > **為什麼**：本 skill 假設呼叫端（`fix-issue` 等）已先驗證，但**直接呼叫**時沒有任何 build/test 把關，可能 push 壞掉的 code。此 gate 補這個洞。與 caller 冗餘是刻意的——重跑廉價且 idempotent，寧可冗餘也不要漏網的壞 build。
 
@@ -71,6 +117,7 @@ git status --short --untracked-files=all | grep -qE '<regex>' && echo MATCH || e
 - 一定要 `--untracked-files=all`：預設只把新目錄印成一行 `?? newdir/`，裡面的檔案比對不到，整個新模組會漏過閘門
 - `MATCH` → 跑該指令；**fail 就停**，回報錯誤、絕不 commit
 - 全部 `SKIP` 或 `verify_commands` 為空 → 跳過
+- **2.5.0 rebase 移動了 HEAD**：除了上面的比對，另外跑 conventions 的 `test_command` 與 `lint_command`（依改動路徑選對應那列，跟 `fix-issue` Step 3 同一組），派給 `runner` agent 並等結果，綠燈要綁定指紋（`.agents/roles/README.md`「綠燈要綁定內容」）。兩者都沒定義 → 問使用者要跑什麼；使用者說不跑就在回報註明「rebase 後未驗證」。fail 就停，絕不 push
 
 ### Step 3: Commit and Push
 
@@ -86,8 +133,12 @@ git commit -m "$(cat <<'EOF'
 EOF
 )"
 git push -u origin "$(git branch --show-current)"
+# 2.5.0 rebase 過且分支已 push 過 → 改用：
+# git push --force-with-lease=<branch>:$LEASE origin <branch>
 ```
 
+- 「只 rebase」：沒有東西可 commit，跳過 `git add`／`git commit`，經 Step 2 所列的確認後只做 push（用上面的 `--force-with-lease`）；2.5.0 判定不用 rebase 就什麼都不推，回報「base 沒前進／無衝突，未 rebase」
+- push 被 lease 擋下 → 停下回報，不改用 `--force`
 - `<scope>` 須在 `commit_scopes` 內（若有定義）
 - `<commit_trailer>` 依 conventions（Claude Code / Codex 各自的 Co-Authored-By）
 
@@ -107,6 +158,8 @@ git push -u origin "$(git branch --show-current)"
   ### 變更內容
   <bullet points>
   ```
+
+  Step 2.5.0 有 rebase 過（head 因此改變）時，在「簡述原因」註明「已 rebase 到 origin/<base>」，並寫 rebase 後是否重跑了驗證。「只 rebase」沒有新 commit：`### Commit` 填 rebase 後的 head，「變更內容」寫「無新變更，僅 rebase」（解過衝突則列出解了哪些檔）。
 
 - **更新 PR 描述**（大幅變更，會覆寫原描述）→ **[tracker] 更新 PR 描述**，內容依 Option B 步驟 1–3（選骨架、填寫、關閉語法）重填
 
@@ -155,6 +208,7 @@ git push -u origin "$(git branch --show-current)"
 - PR 內文語言依 `language`；**commit message 語言依 `commit_language`**，格式一律 Conventional Commits `type(scope): description`
 - **Target branch 預設 `base_branch`**，使用者可覆蓋
 - **Never skip the review step** — push 前要使用者確認
-- **Verification gate**：`verify_commands` 有命中就必須綠才 commit
+- **Rebase 先於 gate**：新分支 push 前先 rebase 到 `origin/<base>`；已 push 的分支只在衝突、需更新或呼叫端「只 rebase」時才 rebase，先確認遠端沒有領先，再用帶 sha 的 `--force-with-lease=<branch>:<sha>`；衝突需要判斷、autostash 還原衝突、lease 被擋 → 停下回報
+- **Verification gate**：`verify_commands` 有命中就必須綠才 commit；rebase 移動了 HEAD 就另跑 `test_command`／`lint_command`，綠燈對的是 rebase 後的內容
 - **PR 已存在**：問使用者要更新描述還是追加 comment；小變更預設 comment
 - **Staging**：永遠明列檔案，禁止 `git add -u` / `git add .`

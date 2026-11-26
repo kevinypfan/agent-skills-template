@@ -112,6 +112,27 @@ fresh; run --apply >/dev/null; mkdir -p "$H/.agents"; echo 'claude_settings: fal
 run --uninstall >/dev/null
 check "opt-out 後 uninstall 仍清掉本腳本的兩筆" '[ "$(jq -c . "$S")" = "{}" ]'
 
+echo "12. 寫回前的防護（用假的 jq 包裝模擬）"
+fake_jq() {
+  mkdir -p "$H/bin"
+  cat > "$H/bin/jq" <<'SH'
+#!/usr/bin/env bash
+case "$FAKE_JQ_MODE:$*" in
+  truncate:*'| length > 0'*) : > "$HOME/.claude/settings.json" ;;   # 查詢時，別的程式把檔案清空
+  empty:*'+= [{hooks'*) exit 0 ;;                                     # 寫入時 jq 輸出空字串並回傳 0
+esac
+exec "$REAL_JQ" "$@"
+SH
+  chmod +x "$H/bin/jq"
+}
+run_fake() { HOME="$H" PATH="$H/bin:$PATH" REAL_JQ=$(command -v jq) FAKE_JQ_MODE=$1 bash "$inst" --no-codex --apply 2>&1; }
+fresh; fake_jq; echo '{"model":"opus"}' > "$S"
+out=$(run_fake truncate)
+check "處理中被清空：報衝突、不當成 {} 重寫" 'grep -q "在處理中被清空" <<<"$out" && [ ! -s "$S" ] && ! grep -q "加入  ~/.claude/settings.json" <<<"$out"'
+fresh; fake_jq; echo '{"model":"opus"}' > "$S"
+out=$(run_fake empty)
+check "jq 輸出空內容：不寫回、原本設定完整" 'grep -q "寫入失敗（加入 SubagentStop hook）" <<<"$out" && [ "$(jq -r .model "$S")" = opus ] && [ "$(hooks)" = "[]" ]'
+
 echo "8. hook script"
 fresh; t="$H/t.jsonl"
 printf '%s\n' '{"type":"user","message":{"role":"user"}}' '{"type":"assistant","advisorModel":"claude-opus-x","message":{"model":"claude-haiku-x"}}' > "$t"

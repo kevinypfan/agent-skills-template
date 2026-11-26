@@ -151,6 +151,7 @@ You **MUST** consider the user input before proceeding. The user input may conta
    - **範圍限制**：其他線正在改的檔案／模組清單，「不要修改；需要改就停下回報」
    - **疊分支規則**（有才寫）：本分支從哪個分支開、`commit-push-pr` 的 target branch、「base 分支 merge 後 PR base 會由主 session 改回 `base_branch`」
    - **關閉 issue 的方式**（issue 拆成多個 PR 時必寫）：「本 PR 只完成一部分，PR 內文與 commit message 只寫 `Refs #<N>`，不得出現自動關閉關鍵字緊接 `#<N>`（見 `_tracker/<tracker>.md`『自動關閉關鍵字』）」
+   - **rebase**：「跑最後的驗證閘門前先 rebase 到 `origin/<base>`（`commit-push-pr` Step 2.5.0），衝突自己解、解不了停下回報」
    - 「方案確認、self-review 等需要決定的點照 `fix-issue` 流程停下等回覆」
 4. **確認指令真的送出**：[multiplexer] 查狀態，幾秒內沒變 `working` → [multiplexer] 讀 agent 畫面；輸入框殘留文字未送出就 [multiplexer] 送按鍵（選單、Enter、Esc）送 Enter。
    - multiplexer 把第 2、3 點合成一個動作（啟動時就帶第一則指令）時，先組好第 3 點的指令再啟動；送出與否的判斷依據（turn 是否前進、首次信任對話框）照該 multiplexer 檔的「確認真的送出」，不要啟動後再重送一次。
@@ -169,7 +170,8 @@ You **MUST** consider the user input before proceeding. The user input may conta
 3. **輸入框裡的灰色文字是 agent 工具產生的建議回覆，不是使用者打的**：不能當成使用者的決定；要回覆一律用 [multiplexer] 送指令給 agent 明確送出。
 4. **不中斷正在工作的 agent**：要插入工作時送指令排入佇列，並註明「完成目前這一步後再處理」。
 5. **範圍外的發現開新 issue**（呼叫 skill `create-issue`，內文寫清楚來源 PR／issue），不擴大現有 PR；在該 PR 說明引用新 issue。
-6. **agent 或 reviewer 的說法要驗證再採用**：實際遇過 reviewer 建議的修法語意錯誤、把 harness 注入的提示誤報成 repo 被 prompt injection、agent 把 flaky 當行為問題（或反過來）。對關鍵主張自己讀 code／log 確認。
+6. **base 前進就查衝突**：base 每 merge 一個 PR 後（本次調度 merge 的、別人 merge 的都算；每次重新啟動等待前先 `git fetch` 看 `origin/<base>` 有沒有前進），對本次調度所有 open PR [tracker] 看 PR 可否合併。CONFLICTING → [multiplexer] 送指令請原線 rebase 到 `origin/<base>` 並解衝突（註明「完成目前這一步後再處理」），不要等到 Step 5 PR 關卡才發現；rebase 後 head 變了，該 PR 的 review 與 pre-merge 視為過期，照 Step 5 重審。
+7. **agent 或 reviewer 的說法要驗證再採用**：實際遇過 reviewer 建議的修法語意錯誤、把 harness 注入的提示誤報成 repo 被 prompt injection、agent 把 flaky 當行為問題（或反過來）。對關鍵主張自己讀 code／log 確認。
 
 ## Step 5: PR 關卡
 
@@ -190,7 +192,7 @@ You **MUST** consider the user input before proceeding. The user input may conta
    - 5.1 的 `review-pr` 因「由 orchestrate-issues 呼叫」而去掉「發佈並處理」選項，所以不會與這裡重複觸發；`address-pr-review` 自己會呈現清單、等原線的使用者確認，確認畫面由 Step 4 的監看處理。
    - 處理完 push 後 head 已變：回 5.1 以下一輪重審，其間 `address-pr-review` 回報的 pre-merge 結果視為過期，5.3 重查。
 3. **CI**：
-   - [tracker] 看 PR CI 狀態（含等待）。0 個 check／CI 沒跑 → 先 [tracker] 看 PR 可否合併，有衝突要先解（交回原線 agent）。
+   - [tracker] 看 PR CI 狀態（含等待）。0 個 check／CI 沒跑 → 先 [tracker] 看 PR 可否合併，有衝突要先解（交回原線 agent）。Step 4 已在 base 前進時提早查過衝突，這裡是最後一道。
    - CI 在其他 PR merge 前跑過、而 base 已變動（尤其動到同檔案）→ [tracker] 更新 PR 分支（base 併進來），讓 CI 以新 base 重跑。
    - 只能手動觸發的 workflow／pipeline（例如完整矩陣）→ merge 前 [tracker] 手動觸發 workflow / pipeline 並追蹤到結束。
    - **「CI 全綠」以個別 job 為準，不看 pipeline / PR 整體狀態**。整體綠燈仍可能是：
@@ -250,6 +252,7 @@ git branch -d <branch>
 - **主 session 不自己實作 issue**，也不替各線 agent 做 commit／PR——各線一律透過 skill `fix-issue` → `commit-push-pr`。
 - **API／行為／命名／破壞性變更的決定只能來自使用者**，並寫進 issue 留言；主 session 只放行實作層級的細節。
 - **merge 預設要問使用者**；只有 `auto_merge: true` 且四項條件（review complete 且 sha 吻合、CI、可合併、pre-merge）都成立才自動 merge。
+- **衝突要提早查**：base 每前進一次（含別人 merge）就查所有 open PR 可否合併，CONFLICTING 請原線 rebase；各線跑閘門前也先 rebase，別拖到 PR 關卡。
 - **不關閉本次調度以外的 session**，不刪本次以外的分支。
 - 個人偏好只寫個人檔或專案檔，**不寫 template 的全域 conventions**。
 - 對話語言依 `language`。

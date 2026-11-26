@@ -58,7 +58,26 @@ git status --short
 3. **Review untracked files**：哪些該 commit、哪些該 ignore
 4. **使用者確認所有想修的都修完**才進 Step 2.5
 
-### Step 2.5: Verification Gate（conditional）
+### Step 2.5: Rebase 到最新 base，再跑 Verification Gate
+
+#### 2.5.0 先 rebase 到 `origin/<base>`（不論閘門是否命中都做，在 commit／push 前）
+
+> **為什麼**：base 在分支開出後可能又 merge 了別的 PR（尤其改同一段文件的）；衝突若拖到 PR 關卡才發現，review 與驗證都已做完，rebase 後 head 變了還要重審。在這裡先解掉，綠燈對的才是最新的 base。
+
+`<base>` = 使用者指定的 target branch；沒指定且 Step 1 查到 PR 已存在就用該 PR 的 target branch；都沒有用 conventions 的 `base_branch`。疊分支時 base 是上一條分支。
+
+```bash
+git fetch origin <base>
+git rev-list --count HEAD..origin/<base>   # 0 → base 沒前進，跳過 rebase（不產生空 rebase）
+git rebase --autostash origin/<base>       # 工作樹有未 commit 變更（此時尚未 commit）用 --autostash
+```
+
+- `--autostash` 還原時**不保留 staged 狀態**：rebase 前先記下 `git diff --cached --name-only`，rebase 後照清單重新 `git add`（有些閘門比對的是 index，例如產生的檔案要先 stage）。autostash 還原時衝突 → 變更留在 stash，`git stash list` 確認後解衝突再 `git stash drop`，不要丟掉
+- 有衝突就在這裡解；解不了或需要判斷（兩邊改同一段語意）→ `git rebase --abort`、停下回報，不硬解
+- rebase 後才跑下面的閘門，**閘門綠燈綁定的是 rebase 後的內容指紋**
+- 分支已 push 過（PR 已存在）：Step 3 改用 `git push --force-with-lease`（不用 `--force`），且 Step 4 Option A 的追加 comment 要註明「已 rebase 到 origin/<base>」
+
+#### 2.5.1 Verification Gate（conditional）
 
 > **為什麼**：本 skill 假設呼叫端（`fix-issue` 等）已先驗證，但**直接呼叫**時沒有任何 build/test 把關，可能 push 壞掉的 code。此 gate 補這個洞。與 caller 冗餘是刻意的——重跑廉價且 idempotent，寧可冗餘也不要漏網的壞 build。
 
@@ -85,7 +104,7 @@ git commit -m "$(cat <<'EOF'
 <commit_trailer>
 EOF
 )"
-git push -u origin "$(git branch --show-current)"
+git push -u origin "$(git branch --show-current)"   # 2.5.0 rebase 過且已 push 過 → 改 git push --force-with-lease
 ```
 
 - `<scope>` 須在 `commit_scopes` 內（若有定義）
@@ -107,6 +126,8 @@ git push -u origin "$(git branch --show-current)"
   ### 變更內容
   <bullet points>
   ```
+
+  Step 2.5.0 有 rebase 過（head 因此改變）時，在「簡述原因」註明「已 rebase 到 origin/<base>」。
 
 - **更新 PR 描述**（大幅變更，會覆寫原描述）→ **[tracker] 更新 PR 描述**，內容依 Option B 步驟 1–3（選骨架、填寫、關閉語法）重填
 
@@ -155,6 +176,7 @@ git push -u origin "$(git branch --show-current)"
 - PR 內文語言依 `language`；**commit message 語言依 `commit_language`**，格式一律 Conventional Commits `type(scope): description`
 - **Target branch 預設 `base_branch`**，使用者可覆蓋
 - **Never skip the review step** — push 前要使用者確認
-- **Verification gate**：`verify_commands` 有命中就必須綠才 commit
+- **Rebase 先於 gate**：commit／push 前先 rebase 到 `origin/<base>`（base 沒前進就跳過）；已 push 過用 `--force-with-lease`，衝突解不了就停下回報
+- **Verification gate**：`verify_commands` 有命中就必須綠才 commit，綠燈對的是 rebase 後的內容
 - **PR 已存在**：問使用者要更新描述還是追加 comment；小變更預設 comment
 - **Staging**：永遠明列檔案，禁止 `git add -u` / `git add .`

@@ -6,7 +6,7 @@ skill 本文**不得**硬編這些值，改值一律改這裡（個人偏好改�
 
 ## 設定來源與優先序
 
-每個 key 依序找第一個**明確設定**的來源：
+每個 key 依序找第一個**明確設定**的來源（例外：`autopilot` 取專案檔與個人檔中較保守的值，見該列）：
 
 1. **專案** `.agents/conventions.md`（repo 根的本檔）——該 key 那列「本專案值」欄非空（`（同預設）` 也算明確設定為預設值）
 2. **個人** `~/.agents/conventions.local.md`——只列要覆寫的 key，所有專案共用；不進 template repo、`scripts/install-global.sh` 不建立也不刪除
@@ -14,7 +14,7 @@ skill 本文**不得**硬編這些值，改值一律改這裡（個人偏好改�
 
 - 使用者在 user input 臨時指定的值（例如「這次不要自動 merge」）優先於以上全部，只影響本次、不寫檔。
 - 回報／預覽要標出非專案設定的值來源：「（個人設定）」「（推斷自 <來源>）」「（預設）」。
-- **個人偏好（yolo、自動 merge…）不得寫進 template 的 `~/.agents/conventions.md`**：它是 symlink，寫進去等於改 template repo、會被 commit 成所有人的預設。skill 要保存設定時只寫個人檔或專案檔。
+- **個人偏好（yolo、自動 merge、autopilot…）不得寫進 template 的 `~/.agents/conventions.md`**：它是 symlink，寫進去等於改 template repo、會被 commit 成所有人的預設。skill 要保存設定時只寫個人檔或專案檔。
 
 ### 寫入規則（skill 保存使用者選擇時）
 
@@ -56,14 +56,17 @@ skill 本文**不得**硬編這些值，改值一律改這裡（個人偏好改�
 | `multiplexer` | `auto` | | `orchestrate-issues` 開 agent session 用的 terminal multiplexer：`auto` / `herdr` / `hc` / `none`（`auto` = `HERDR_ENV=1` → `herdr`，否則有 `HC_TERMINAL_ID` → `hc`，都沒有 → `none`）。偵測與動作對照見 `.agents/skills/_multiplexer/README.md` |
 | `agent_kind` | 目前所在的 agent | | 調度時開新 session 啟動的 agent（`claude` / `codex`…） |
 | `agent_start_args` | （無） | | 啟動 agent 的額外參數。yolo mode 在這裡開（Claude `--dangerously-skip-permissions`；Codex `--dangerously-bypass-approvals-and-sandbox`），預設關閉 |
-| `auto_merge` | `false` | | `orchestrate-issues`：`true` = review 狀態 complete 且審查的 sha 等於要 merge 的 head 且無 blocker、CI 全綠、可合併、pre-merge 擴充點全通過（沒有則略）四項皆成立時自動 merge；`false` = 每個 PR merge 前問使用者 |
+| `auto_merge` | `false` | | **只管 `orchestrate-issues`**（單 session 的自動 merge 看 `autopilot`）：`true` = review 狀態 complete 且審查的 sha 等於要 merge 的 head 且無 blocker、CI 全綠、可合併、pre-merge 擴充點全通過（沒有則略）四項皆成立時自動 merge；`false` = 每個 PR merge 前問使用者 |
 | `merge_method` | `merge` | | `merge` / `squash` / `rebase` |
 | `merge_subject` | 依 `git log --merges` 慣例 | | merge commit subject 格式（如 `Merge pull request #<N> from <branch>`、`<PR title> (#<N>)`） |
 | `delete_branch_after_merge` | `true` | | 收尾時是否刪除已 merge 的本地與遠端分支 |
 | `max_parallel_lanes` | `4` | | 同時進行的 agent 線數上限 |
 | `review_policy` | 改對外契約或 ≥3 檔派 reviewer | | 只管「何時呼叫 `review-pr`」（`orchestrate-issues` 5.1 讀它；門檻沿用 `global/AGENT-ROLES.md`） |
 | `review_fanout` | 超過 10 檔或 diff 超過 1500 行 | | 只管 `review-pr` 內部「何時分組 fan-out 給 `reviewer` agent」；未達門檻由主對話逐檔審 |
-| `adversarial_external` | `true` | | `review-pr` 的 adversarial pass 是否送給外部 agent（`ask-agents`）；`false` = 不外送，直接派本家 `reviewer` agent，並在總結註明 |
+| `adversarial_external` | `auto` | | `review-pr` 的 adversarial pass 怎麼跑：`auto` = 外部 agent（`ask-agents`）與 `reviewer` agent **同時跑**，`reviewer` 回來就能往下，外部晚到就併入、沒到就註明，之後的輪次補問外部一次（外部在冷卻中則只跑 `reviewer`）；`true` = 先外部、不可用才退 `reviewer`（舊預設）；`false` = 不外送，只派 `reviewer`，並在總結註明 |
+| `ask_agents_cooldown` | `5h` | | 外部 agent 額度用完、錯誤訊息又沒給 reset 時間時，`ask-agents` 記下的冷卻時間；冷卻期間不再叫它，直接回報不可用（紀錄與解除見 `ask-agents`） |
+| `autopilot` | `off` | | `fix-issue` → `commit-push-pr` → `review-pr` → `resolve-review` 這條鏈自己推進到哪裡：`off` = 每個確認點都問；`pr` = 開好 PR 並審一輪後停；`merge` = 循環修到「建議合併」後過 merge 關卡自動 merge。`fix-issue` 的方案 proceed 一律照停。**不照一般優先序**：專案檔與個人檔都有設定時取較保守的（`off` < `pr` < `merge`），讓個人能用 `off` 關掉專案開的 autopilot；細節與仍會停下的情況見 `.agents/skills/_autopilot/README.md` |
+| `autopilot_max_rounds` | `3` | | `autopilot` 生效時 `review-pr` 最多跑到第幾輪（PR 上的總輪次）；到了仍未收斂就停下回報。不是正整數就用預設 |
 
 ## 範例（填好的樣子）
 
@@ -109,6 +112,8 @@ max_parallel_lanes: 3
 | `multiplexer` / `auto_merge` / `merge_method` / `delete_branch_after_merge` / `max_parallel_lanes` / `review_policy` / `review_fanout` / `adversarial_external` | 用「預設」欄；`orchestrate-issues` 首次使用時會引導設定並存進個人檔或專案檔 |
 | `agent_kind` | 目前執行 skill 的 agent（Claude Code → `claude`、Codex → `codex`） |
 | `agent_start_args` | **不推斷**，預設空（不開 yolo）；只接受使用者明確選擇 |
+| `autopilot` | **不推斷**，預設 `off`；只接受使用者明確設定（專案檔或個人檔） |
+| `autopilot_max_rounds` / `ask_agents_cooldown` | 用「預設」欄 |
 | `merge_subject` | `git log --merges -10 --format=%s` 的主要格式；沒有 merge commit 就用 tracker 預設 |
 
 規則：

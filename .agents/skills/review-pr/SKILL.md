@@ -26,6 +26,7 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 - 疊分支時的 base（只審本 PR 自己的 delta）
 - 額外的審查重點
 - 由 `orchestrate-issues` 呼叫時，參數註明「由 orchestrate-issues 呼叫」（影響 Step 4 與 Step 6）
+- 由 `commit-push-pr` 或 `resolve-review` 自動串接時，參數帶「由 autopilot 串接（`<值>`）」（見 Step 0 第 3 點）
 
 呼叫範例（參數部分）：
 
@@ -49,8 +50,9 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 ## Step 0: 讀設定
 
-1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `language`、`review_fanout`、`adversarial_external`、`base_branch`。
+1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `language`、`review_fanout`、`adversarial_external`、`base_branch`、`autopilot`、`autopilot_max_rounds`。
 2. 依 `.agents/skills/_tracker/README.md` 判斷 tracker，讀對應 `.agents/skills/_tracker/<tracker>.md`。下文 **[tracker] 動作** 一律查該檔。
+3. conventions 的 `autopilot` 不是 `off`、參數含「由 autopilot 串接」、或使用者在對話中臨時指定時，讀 `.agents/skills/_autopilot/README.md`，依其「何時生效」判斷本次的有效值（PR 作者要**確定**等於自己帳號才可能生效，在 Step 1 取得作者後才判定、判定前當 `off`，與 Step 1 第 5 點「判不出來當自審」無關）。下文寫「`autopilot` 生效時」的地方照該檔做。
 
 ## Step 1: 找 PR
 
@@ -117,12 +119,14 @@ findings 格式與嚴重度沿用 `.agents/roles/reviewer.md`：`[嚴重度] 檔
 **狀態規則**：只有「外部 agent 或 `reviewer` 曾對**整個 PR** 成功跑完」才算已跑過。狀態要跨輪傳遞，判讀時回溯**自己留的所有輪次**總結（Step 2 第 1 點的帳號過濾同樣適用）的 Adversarial pass 區段，不能只看上一輪：任一輪記載「外部 agent／reviewer 已於第 N 輪（審至 <sha>）對整個 PR 跑過」就算已跑過。
 - 已跑過 → 不重跑，只有使用者點名要問才再問；增量命中高風險時，由你自己照 `.agents/skills/review-pr/assets/adversarial-prompt.md` 的問法對增量推演，結果寫進 Adversarial pass 區段並註明「本輪增量由主對話自審，外部 agent 未重跑」。
 - 未跑過（所有輪次都未執行、失敗、只跑過增量、或只由主對話自審）→ 本輪觸發條件成立時補跑，對象是**整個 PR**。
+- `adversarial_external` 為 `auto` 時，reviewer 與外部 agent 分開判讀：任一邊跑過就算「已跑過」（不擋收斂、reviewer 不重跑）；但外部 agent 若「未跑過」且沒有「已補問」紀錄、這次也不在冷卻中 → 本輪補問外部一次（整個 PR），結果記成「已於第 N 輪補問（結果）」，之後不論結果都不再問。
 
 做法（依序嘗試，前一個不可用才退下一個）：
 
-1. `adversarial_external` 為 `true`（預設）→ 呼叫 skill `ask-agents`：用 `.agents/skills/review-pr/assets/adversarial-prompt.md` 組 prompt，填入 base／head、高風險命中項、assumption 清單、本輪已找到的 findings；必讀證據只是 seeds，模板已要求對方自行擴大搜尋。**只用 `ask-agents` 的 Step 1–3 取回意見，不走它的「Review 場景的後續流程」**；發佈一律回到本 skill 的 Step 4–5。
+1. `adversarial_external` 為 `auto`（預設）→ **同一則訊息裡同時**呼叫 skill `ask-agents`（同下方 `true` 的做法）並派 `reviewer` agent 吃同一份 prompt，兩邊都在背景跑。`reviewer` 回來就驗證它的 finding 並往 Step 4 組稿；外部 agent 在組稿完成前回來就一起併入。組稿完成時外部還沒回，最多再等 5 分鐘，仍沒回就以 `reviewer` 的結果為準，Adversarial pass 區段註明「外部 agent 未在時限內回覆」（它之後才回來、且在發佈前，仍併入並更新稿件）。`ask-agents` 回報外部在冷卻中或不可用 → 只用 `reviewer` 的結果，註明原因。`reviewer` 失敗或環境沒有 sub agent → 改等外部 agent 回來（不套 5 分鐘上限）；兩邊都失敗或不可用才走第 3 點。`auto` 下狀態分開記：總結的 Adversarial pass 區段寫明「reviewer 已跑過」與「外部 agent 已跑過／未跑過（原因）」。任一邊對整個 PR 跑完，本輪就算已執行、不擋收斂；但外部 agent 還沒對整個 PR 跑過、而且這次不在冷卻中時，之後的輪次要補問外部一次（只問外部，reviewer 不重跑）。發佈後外部才回來且有屬實的 blocker／major → 另發一則補充總結並告知使用者；`autopilot` 的 merge 關卡會再等外部最多 5 分鐘（見 `_autopilot`）。
+   `adversarial_external` 為 `true` → 呼叫 skill `ask-agents`：用 `.agents/skills/review-pr/assets/adversarial-prompt.md` 組 prompt，填入 base／head、高風險命中項、assumption 清單、本輪已找到的 findings；必讀證據只是 seeds，模板已要求對方自行擴大搜尋。**只用 `ask-agents` 的 Step 1–3 取回意見，不走它的「Review 場景的後續流程」**；發佈一律回到本 skill 的 Step 4–5。
    `adversarial_external` 為 `false` → 不送外部 agent，直接派 `reviewer` agent 吃同一份 prompt，來源標「adversarial pass（reviewer agent，adversarial_external=false）」，並在總結註明。
-2. `ask-agents` 不可用 → 派給 `reviewer` agent 吃同一份 prompt。來源標「adversarial pass（reviewer agent，外部 agent 不可用）」。
+2. （`true` 時）`ask-agents` 不可用、回報外部在冷卻中、或回覆為空 → 派給 `reviewer` agent 吃同一份 prompt。來源標「adversarial pass（reviewer agent，外部 agent 不可用：<原因>）」。
 3. 兩者都沒有 → **不跑**，在回報與總結的 Adversarial pass 區段明寫「未執行」與原因，且**不得寫「建議合併」**；Step 6 狀態為 `incomplete`。
 
 回來的每條 finding 先對照 code 驗證再收：屬實 → 併入 findings 並標來源「adversarial pass」；不成立 → 記進 Adversarial pass 區段「宣稱 → 為何不成立」，不丟掉。對方沒回 finding 不等於安全：檢查它有沒有自己找到 seeds 之外的 producer／caller／schema，缺就補問至多一次，仍缺則由你補查並註明。
@@ -131,7 +135,7 @@ findings 格式與嚴重度沿用 `.agents/roles/reviewer.md`：`[嚴重度] 檔
 
 1. 讀 `.agents/skills/review-pr/assets/summary-template.md`，依 `language` 填成總結 comment。標題固定 `## PR Review（第 N 輪，審至 <sha>）`，sha 取 `git rev-parse --short=7 <head>`（至少 7 碼，碰撞時會更長；解析端接受 7 碼以上）。**findings 預設全寫進總結並附 `file:line`**，不預設留 inline。
 2. **收斂判準**：本輪無新 blocker／major，且上輪的 blocker／major 都已修或不採納成立 → 結論可寫「建議合併」。上輪未處理的 minor／nit 不阻擋：在上輪追蹤表標「未修（非阻塞）」，結論列為非阻塞項。自審或高風險的 PR 另加一條：Step 3b 已跑過，否則不得寫。有未裁決的 `needs-architect` 也不得寫。
-3. **在對話中完整呈現**稿件（findings、嚴重度、結論）。**自審也一樣**：先呈現、等使用者確認才發佈，不自動發。
+3. **在對話中完整呈現**稿件（findings、嚴重度、結論）。**自審也一樣**：先呈現、等使用者確認才發佈，不自動發。唯一例外是 `autopilot` 生效時：照 `_autopilot`「`review-pr` 的自動選項」選，仍完整呈現稿件。
 4. 問使用者（沒有互動選單的環境直接在對話中列出選項；第一個為預設）。**由 `orchestrate-issues` 呼叫時選項去掉「發佈並處理」**（只剩只發佈／調整／另外留 inline），仍要呈現並等使用者確認；處理交給 orchestrate 5.2，不串接 `resolve-review`。
    - **發佈並處理**（預設）→ Step 5 發佈後進 Step 6 串接。列出此選項前先檢查本地：目前分支是 PR 的 head 分支、與 PR head 一致且工作樹乾淨才維持預設；不符合時標註「發佈後需先切到 PR 分支或 worktree，`resolve-review` 才能執行」，並把預設改為「只發佈」
    - **只發佈** → Step 5 發佈後停在 Step 6 回報
@@ -140,7 +144,7 @@ findings 格式與嚴重度沿用 `.agents/roles/reviewer.md`：`[嚴重度] 檔
 
 0 個 finding 且結論為「建議合併」時，「發佈並處理」退化成「只發佈」，不空跑下游。
 
-> 未經使用者確認，絕不執行任何寫入操作（留言、inline、resolve）。
+> 未經使用者確認，絕不執行任何寫入操作（留言、inline、resolve）。`autopilot` 生效時的自動選項視同使用者已選，範圍只到總結 comment，不留 inline、不 resolve。
 
 ## Step 5: 發佈
 
@@ -160,16 +164,17 @@ findings 格式與嚴重度沿用 `.agents/roles/reviewer.md`：`[嚴重度] 檔
 3. 各嚴重度的 finding 統計；上輪追蹤的已修／未修／不採納／已解決（無需改動）數。
 4. Adversarial pass：跑了誰、屬實與不成立各幾條；或「未執行」與原因。
 5. 若留了 inline：成功與失敗各幾條，失敗項併進總結的哪一則。
-6. 使用者選「發佈並處理」（非 orchestrate 呼叫）→ 呼叫 skill `resolve-review`，帶 PR 編號與輪次，不重傳 findings：
+6. 使用者選「發佈並處理」（非 orchestrate 呼叫）→ 呼叫 skill `resolve-review`，帶 PR 編號與輪次，不重傳 findings（`autopilot` 自動選的，參數改用第 7 點的格式）：
 
    ```text
    由 review-pr 呼叫；<PR 編號>，第 <N> 輪
    ```
-7. 固定一列：「擴充點：context 已讀／無；review 已套用／無；pre-merge：無（本 skill 不執行）」。
+7. `autopilot` 生效時的下一步（照 `_autopilot`），依序判斷：狀態不是 `complete` → 停下回報，不串接、不進關卡；有效值 `merge` 且結論「建議合併」→ 進 `_autopilot`「merge 關卡」，關卡的檢查與結果併進本回報；自動選了「發佈並處理」→ 照第 6 點串接，參數為 `由 review-pr 呼叫；<PR 編號>，第 <N> 輪；由 autopilot 串接（merge）`；其餘停在這裡。
+8. 固定一列：「擴充點：context 已讀／無；review 已套用／無；pre-merge：無（本 skill 不執行）」；進了 merge 關卡時 pre-merge 改寫關卡的結果。
 
 ## Important Notes
 
-- **未經使用者確認不發佈**，自審也不例外；呈現不能省。
+- **未經使用者確認不發佈**，自審也不例外；呈現不能省。`autopilot` 生效（只限自審）時由 `_autopilot` 的規則代替確認，呈現仍不能省。
 - 審查對象一律以 PR 的 head 為準，不切分支；base／head sha 用 **[tracker] 看 PR（JSON）** 取，不用 `git merge-base` 推算（`git merge-base --is-ancestor` 只用來判斷上輪 sha 與 head 的祖先關係）。
 - 不重複先前輪次已解決的問題；每輪前先掃既有 thread 與總結。
 - 不對未變更的舊 code 開 nit；nit 最多 5 筆。

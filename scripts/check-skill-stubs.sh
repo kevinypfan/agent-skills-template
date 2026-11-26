@@ -79,6 +79,9 @@ for f in README.md $(for m in $MULTIPLEXER_CLIS; do echo "$m.md"; done); do
   [ -f ".agents/skills/_multiplexer/$f" ] || { echo "✗ 缺 .agents/skills/_multiplexer/$f"; fail=1; }
 done
 [ -d .agents/roles ] && { for f in worktree-fingerprint.sh evals/check-fingerprint.sh; do [ -f ".agents/roles/$f" ] || { echo "✗ 缺 .agents/roles/${f}（runner 與 fix-issue 的內容指紋）"; fail=1; }; done; }
+# _autopilot 規則與 ask-agents 的冷卻紀錄（review-pr、commit-push-pr 等引用）
+[ -f .agents/skills/_autopilot/README.md ] || { echo "✗ 缺 .agents/skills/_autopilot/README.md（autopilot 規則）"; fail=1; }
+for f in scripts/cooldown.sh evals/check-cooldown.sh; do [ -f ".agents/skills/ask-agents/$f" ] || { echo "✗ 缺 .agents/skills/ask-agents/${f}（外部 agent 冷卻紀錄）"; fail=1; }; done
 # orchestrate-issues 收尾與 _multiplexer 引用的 clean-disk 檢查 script
 [ -f .agents/skills/clean-disk/scripts/ignored-extras.sh ] || { echo "✗ 缺 .agents/skills/clean-disk/scripts/ignored-extras.sh（orchestrate-issues 收尾用）"; fail=1; }
 [ -f .agents/skills/clean-disk/scripts/active-in.sh ] || { echo "✗ 缺 .agents/skills/clean-disk/scripts/active-in.sh（_multiplexer/hc.md 收尾用）"; fail=1; }

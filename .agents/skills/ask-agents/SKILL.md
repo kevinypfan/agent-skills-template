@@ -57,17 +57,21 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 high reasoning 可能跑好幾分鐘，一律背景執行；要問多家時**同一則訊息裡一起發**。
 
+**呼叫前先查冷卻**：每個要問的 agent 先用 Bash 執行 `bash .agents/skills/ask-agents/scripts/cooldown.sh check <agent>`（`<agent>` = `codex` / `claude` / `agy`）。exit 1 → 這家還在額度冷卻中，**不呼叫**，把它印出的那行（冷卻到何時、原因）當作「不可用」回報給呼叫端；全部要問的都在冷卻中就直接結束，讓呼叫端走 fallback。使用者說額度回來了 → `cooldown.sh clear <agent>`。 `check` 的 exit 不是 0 也不是 1（script 不存在、用法錯）→ 當作可用，照常呼叫，並在回報註明冷卻檢查失敗。
+
+**額度用完時記冷卻**：先判斷「沒有答案」：codex 是 `-o` 回覆檔空或沒產生；claude 是 exit code 不是 0，或回覆檔只有一段 usage limit 訊息（claude 的錯誤會印在 stdout，也就是回覆檔裡）；agy 是回覆檔空或只有錯誤。再看錯誤訊息：**codex 只看 log 裡 `ERROR` 開頭的行**（它的 log 會回顯整份 prompt，prompt 裡常有 quota、limit 之類的字，整份或最後幾行 grep 都會誤判）；claude、agy 看各自 log 的最後 20 行；claude 看它回覆檔裡那段訊息。出現 usage limit／quota／credit／「hit your limit」一類 → 執行 `cooldown.sh set <agent> <時間> "<錯誤摘要一句>"`。時間：訊息寫「try again in 3 hours」→ `3h`；「resets at 14:00」→ `14:00`；「try again at Dec 22nd, 2026 1:25 AM」→ `"2026-12-22 01:25"`（script 會換算本地時間）；都沒寫 → conventions 的 `ask_agents_cooldown`（預設 `5h`）。**rate limit（429、每分鐘次數）不記冷卻**，那是幾秒到幾分鐘的事；其他失敗（網路、model not supported、prompt 問題）也不記。`set` exit 3（鎖拿不到）→ 照常回報不可用，並註明冷卻沒記成。
+
 **codex**（在 Claude Code 裡預設必問）：
 
 ```bash
 codex exec --sandbox read-only --skip-git-repo-check \
   -m gpt-6-astra -c model_reasoning_effort=high \
   -o "$SCRATCHPAD/ask-agents/codex-answer.md" \
-  - < "$SCRATCHPAD/ask-agents/prompt.md"
+  - < "$SCRATCHPAD/ask-agents/prompt.md" > "$SCRATCHPAD/ask-agents/codex-log.txt" 2>&1
 ```
 
-- `-` = 從 stdin 讀 prompt；`-o` 把**乾淨的最終回覆**寫到檔案（stdout 混著 thinking 與 token 統計，不要從那裡撈答案）
-- **判斷有沒有答案要看檔案內容，不要看 exit code**：額度耗盡時 codex 常常 exit 0，但 `-o` 檔是空的或根本沒產生。空的就當 codex 不可用，回報給呼叫端決定 fallback；**不要重試 codex**，額度不會因為再送一次就回來（model not supported 是例外，見「常見陷阱」的 model fallback）
+- `-` = 從 stdin 讀 prompt；`-o` 把**乾淨的最終回覆**寫到檔案（stdout 混著 thinking 與 token 統計，導到 `codex-log.txt` 只用來判斷失敗原因，不要從那裡撈答案）
+- **判斷有沒有答案要看檔案內容，不要看 exit code**：額度耗盡時 codex 常常 exit 0，但 `-o` 檔是空的或根本沒產生。空的就當 codex 不可用，看 `codex-log.txt` 判斷要不要記冷卻（見上），回報給呼叫端決定 fallback；**不要重試 codex**，額度不會因為再送一次就回來（model not supported 是例外，見「常見陷阱」的 model fallback）
 
 **claude**（在 Codex 裡預設必問）：
 
@@ -77,7 +81,8 @@ claude -p --model fable --effort high \
   --allowedTools "Bash(git diff:*)" "Bash(git log:*)" "Bash(git show:*)" "Bash(rg:*)" "Bash(sed -n:*)" \
   --permission-mode dontAsk \
   --no-session-persistence \
-  < "$SCRATCHPAD/ask-agents/prompt.md" > "$SCRATCHPAD/ask-agents/claude-answer.md"
+  < "$SCRATCHPAD/ask-agents/prompt.md" > "$SCRATCHPAD/ask-agents/claude-answer.md" \
+  2> "$SCRATCHPAD/ask-agents/claude-log.txt"
 ```
 
 - `-p` 從 stdin 讀 prompt，預設 text 輸出**只有最終回覆**（無 thinking），直接重導向即可
@@ -90,7 +95,7 @@ claude -p --model fable --effort high \
 ```bash
 agy --model gemini-3.1-pro-high --sandbox=true --print-timeout 15m \
   -p "$(cat "$SCRATCHPAD/ask-agents/prompt.md")" \
-  > "$SCRATCHPAD/ask-agents/agy-answer.md" 2>&1
+  > "$SCRATCHPAD/ask-agents/agy-answer.md" 2> "$SCRATCHPAD/ask-agents/agy-log.txt"
 ```
 
 - ⚠ **所有 flag 必須在 prompt 之前**：agy 是 Go 式 flag 解析，第一個 positional argument 之後的 flag 全部**靜默忽略**

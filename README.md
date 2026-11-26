@@ -43,6 +43,8 @@ global/
 6. `bash scripts/check-skill-stubs.sh` 應印 ✓。
 7. 確認 CLI：GitLab 專案 `glab auth status`、GitHub 專案 `gh auth status`。`ask-agents` 另需 `codex` / `claude` / `agy`。
 
+**從舊版 template 升級**：`address-pr-review` 已改名為 `resolve-review`（舊名保留在 description 當觸發詞）。專案裡有舊名的客製版時，`git mv .agents/skills/address-pr-review .agents/skills/resolve-review`、把 frontmatter 的 `name` 與引用改成新名，再跑 `bash scripts/generate-skill-stubs.sh`；改名前全域版的讓位段仍會認出舊名目錄並改讀專案版。
+
 ## 全域安裝（所有專案共用）
 
 ```bash

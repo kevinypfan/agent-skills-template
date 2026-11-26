@@ -1,6 +1,6 @@
 ---
 name: resolve-review
-description: 處理 PR / MR 收到的 review 意見：收集未解決 thread、review 總結 comment 與 pre-merge 擴充點未通過項目，統一成 finding 去重，分級（Must / Should / Discuss / Skip）後與使用者確認、實作、跑測試與 lint，經 commit-push-pr 推上去，再逐條回覆或 resolve thread，最後回報不做的事項與理由。使用時機：(1) 使用者說「處理 review 意見」「回應 review」「解決 review」「address review」「套用 review 建議」「修 review」，(2) review-pr 選「發佈並處理」後串接，(3) orchestrate-issues 的 PR 關卡請原線處理 review 結果，(4) 使用者明確呼叫 /resolve-review（舊名 /address-pr-review）。
+description: 處理 PR / MR 收到的 review 意見：收集未解決 thread、review 總結 comment 與 pre-merge 擴充點未通過項目，統一成 finding 去重，分級（Must / Should / Discuss / Skip）後與使用者確認、實作、跑測試與 lint，經 commit-push-pr 推上去，再逐條回覆或 resolve thread，最後回報不做的事項與理由。使用時機：(1) 使用者說「處理 review 意見」「回應 review」「解決 review」「address review」「套用 review 建議」「修 review」，(2) review-pr 選「發佈並處理」後串接，(3) orchestrate-issues 的 PR 關卡請原線處理 review 結果，(4) 使用者明確呼叫 /resolve-review（舊名 address-pr-review）。
 compatibility: Requires git and glab (GitLab) or gh (GitHub)
 ---
 

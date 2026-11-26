@@ -129,7 +129,7 @@ glab api projects/:id/pipelines/<pipeline-id>/jobs --paginate | jq '.[] | {name,
 - pipeline `success` 不代表每個 job 都過：`allow_failure: true` 的 job 失敗時 pipeline 仍是 `success`（job `status` = `failed`）；manual job 預設也是 `allow_failure: true`。逐個看 jobs。
 - `rules:changes` 沒命中的 job 不會出現在 jobs 裡，「沒有失敗」不等於「有跑」。
 - MR 有衝突時 merged-results pipeline 不會跑，先看「可否合併」。
-- pipeline 是在 target 變動前跑的 → 先「更新 PR 分支」讓 pipeline 重跑。
+- pipeline 是在 target 變動前跑的 → 請原線經 skill `commit-push-pr`「只 rebase」讓 pipeline 以新 target 重跑（見 `orchestrate-issues` 5.3）；不用下面的「更新 PR 分支」，`glab mr rebase` 會在伺服器端改寫分支，之後原線的 `commit-push-pr` 會因遠端領先而停下。
 
 ## 看 PR 可否合併
 

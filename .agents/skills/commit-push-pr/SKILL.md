@@ -48,7 +48,7 @@ git status --short
 
 ### Step 2: Self-Review (IMPORTANT)
 
-呼叫端指定「只 rebase」且 Step 1 確認工作樹乾淨、PR 已存在 → 跳過本步，直接 Step 2.5（沒有新變更可審；rebase 時解過的衝突由 2.5.0 交給使用者確認）。工作樹不乾淨或 PR 不存在 → 停下回報，不猜呼叫端的意思。
+呼叫端指定「只 rebase」且 Step 1 確認工作樹乾淨、PR 已存在 → 跳過本步的審查，直接 Step 2.5（沒有新變更可審）。**push 前的確認不跳過**：Step 3 push 前列出 rebase 前後的 head、`<base>`、有沒有用 `--onto`、有沒有解過衝突（解過的附 2.5.0 的 `range-diff`），等使用者確認（`orchestrate-issues` 的線上由主 session 確認）才 force push。工作樹不乾淨或 PR 不存在 → 停下回報，不猜呼叫端的意思。
 
 先對所有變更做一次審查（環境若有內建的 simplify / review 類 skill 可呼叫它；沒有就自己逐項過），四個角度：
 - **Reuse** — 是否有現有工具函式可取代新寫的 code
@@ -72,7 +72,7 @@ git status --short
 
 **何時 rebase**：
 
-- PR 不存在（分支還沒 push 過）：base 有前進就 rebase。
+- PR 不存在：base 有前進就 rebase（分支已 push 過但還沒開 PR 時，照下面的 lease 規則）。
 - PR 已存在：只有呼叫端指定「只 rebase」，或 **[tracker] 看 PR 可否合併** 顯示衝突／需更新分支（GitHub `CONFLICTING`、`mergeStateStatus` 為 `DIRTY` 或 `BEHIND`；GitLab `has_conflicts` 或 `need_rebase`；`UNKNOWN` 隔幾秒再查）時才 rebase，其餘跳過。
 
 ```bash
@@ -137,7 +137,7 @@ git push -u origin "$(git branch --show-current)"
 # git push --force-with-lease=<branch>:$LEASE origin <branch>
 ```
 
-- 「只 rebase」：沒有東西可 commit，跳過 `git add`／`git commit`，只做 push（用上面的 `--force-with-lease`）；2.5.0 判定不用 rebase 就什麼都不推，回報「base 沒前進／無衝突，未 rebase」
+- 「只 rebase」：沒有東西可 commit，跳過 `git add`／`git commit`，經 Step 2 所列的確認後只做 push（用上面的 `--force-with-lease`）；2.5.0 判定不用 rebase 就什麼都不推，回報「base 沒前進／無衝突，未 rebase」
 - push 被 lease 擋下 → 停下回報，不改用 `--force`
 - `<scope>` 須在 `commit_scopes` 內（若有定義）
 - `<commit_trailer>` 依 conventions（Claude Code / Codex 各自的 Co-Authored-By）

@@ -25,9 +25,11 @@ scripts/
 ├── check-skill-stubs.sh    ← 守門（skill stub + agent 三集合一致性 + 讓位段 + 擴充點）
 ├── pre-commit-skill-guard.sh
 ├── install-global.sh       ← 全域安裝（~/.agents、~/.claude、~/.codex）
+├── test-install-global.sh  ← install-global.sh 的情境測試（假 HOME）
 └── post-change-sync.sh     ← git hook 呼叫：已全域安裝時自動同步
 global/
-└── AGENT-ROLES.md          ← 全域派工政策（Claude 用 @import、Codex 寫進 ~/.codex/AGENTS.md 區塊）
+├── AGENT-ROLES.md          ← 全域派工政策（Claude 用 @import、Codex 寫進 ~/.codex/AGENTS.md 區塊）
+└── claude/                 ← Claude Code 全域設定：SubagentStop hook（顯示 sub agent 實際 model）、status line
 .githooks/                  ← pre-commit 守門 + post-commit/merge/checkout/rewrite 自動同步
 ```
 
@@ -56,6 +58,8 @@ bash scripts/install-global.sh --uninstall  # 只移除本腳本裝的項目
 本 repo 是所有專案共用的來源，改壞會立刻影響全部專案——clone 後先 `git config core.hooksPath .githooks`：啟用 pre-commit 守門，以及 commit / merge / checkout / rebase 後自動重跑 `--apply --quiet`（只在本機已全域安裝時動作，改完 Codex toml 或派工政策不必記得手動同步）。
 
 **派工政策**（`global/AGENT-ROLES.md`，讓主對話主動派 scout / runner…）一併安裝：Claude 端 symlink 到 `~/.claude/AGENT-ROLES.md` 並在 `~/.claude/CLAUDE.md` 加一行 `@AGENT-ROLES.md`；Codex 的 `AGENTS.md` 沒有 import，改寫進 `~/.codex/AGENTS.md` 的標記區塊（檔內其他內容不動，`--uninstall` 只拿掉該區塊）。新增角色時要在政策裡點名，守門會檢查。
+
+**Claude Code 設定**一併安裝：`global/claude/` 的兩個 script symlink 到 `~/.claude/agent-skills-template/`，再用 `jq` 合併進 `~/.claude/settings.json`——`hooks.SubagentStop` 加一筆（sub agent 跑完顯示 `🤖 scout → claude-haiku-… (effort: …)`，讀的是 transcript 裡實際呼叫的 model，派工時用 `model` 覆寫也照實顯示）；`statusLine` 只在沒設定時才加，已有自己的就不動（要換用本 repo 的請先刪掉原設定）。其他設定原樣保留，`--uninstall` 只拿掉這兩筆；`settings.json` 是 symlink（dotfiles）時寫回目標檔、不換掉 symlink。沒有 `jq` 時這部分跳過。改了 `install-global.sh` 或 `global/claude/` 後跑 `bash scripts/test-install-global.sh`（假 HOME，不碰真實的 `~`）。
 
 **換機器**：clone 本 repo → `git config core.hooksPath .githooks` → `bash scripts/install-global.sh --apply`，就這樣。
 

@@ -33,7 +33,7 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `base_branch`、`pr_labels`、`pr_assignee`、`pr_template`、`commit_scopes`、`commit_trailer`、`commit_language`、`verify_commands`、`language`、`autopilot`、`test_command`、`lint_command`。
 2. 依 `.agents/skills/_tracker/README.md` 判斷 tracker，讀對應 `.agents/skills/_tracker/<tracker>.md`。下文 **[tracker] 動作** 一律查該檔。
-3. `autopilot` 不是 `off` 時讀 `.agents/skills/_autopilot/README.md`，依其「何時生效」判斷本次的有效值；下文寫「`autopilot` 生效時」的地方照該檔做。其中「PR 已存在且不確定是自己的」要在 Step 1 查完 PR、比對作者後才判定，**判定前一律當 `off`**。
+3. conventions 的 `autopilot` 不是 `off`、參數含「由 autopilot 串接」、或使用者在對話中臨時指定時，讀 `.agents/skills/_autopilot/README.md`，依其「何時生效」判斷本次的有效值；下文寫「`autopilot` 生效時」的地方照該檔做。其中「PR 已存在且不確定是自己的」要在 Step 1 查完 PR、比對作者後才判定，**判定前一律當 `off`**。
 
 ## Workflow
 
@@ -46,7 +46,7 @@ git log --oneline -10
 git status --short
 ```
 
-再執行 **[tracker] 查目前分支的 PR**。成功就記下 PR 編號與 target branch——決定 Step 4 是建新 PR、更新描述、還是追加 comment。
+再執行 **[tracker] 查目前分支的 PR**。成功就記下 PR 編號與 target branch——決定 Step 4 是建新 PR、更新描述、還是追加 comment。`autopilot` 要判定時（Step 0 第 3 點），PR 已存在就再跑 **[tracker] 看 PR（JSON）** 取作者、**[tracker] 取自己帳號** 比對，在這裡完成判定。
 
 ### Step 2: Self-Review (IMPORTANT)
 

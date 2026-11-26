@@ -45,7 +45,7 @@
 | `review-pr` | Step 6 回報後 | 狀態不是 `complete` → 停。`merge` 且結論「建議合併」→ 進「merge 關卡」。選了「發佈並處理」→ 串 `resolve-review` |
 | `resolve-review` | Step 3 分級確認 | 只有 `merge` 自動：Must、Should → 修；Skip → 不採納（理由照寫）；**Discuss 只拿那幾條問使用者**，定案後繼續自動。**blocker／major 被歸為 Skip 的**（「已處理且在 head 驗證過」除外）一律改當 Discuss：不讓 agent 自己否決阻塞項再自己 merge |
 | `resolve-review` | Step 4 實作計畫 | 呈現計畫，不等確認 |
-| `resolve-review` | Step 7 bot thread | 已修且在 head 驗證過 → 回覆並 resolve；不採納 → 只回覆理由、不 resolve，回報裡列出（merge 關卡會因此停，交給使用者） |
+| `resolve-review` | Step 7 bot thread | 已修且在 head 驗證過 → 回覆並 resolve；不採納 → 只回覆理由、不 resolve，回報裡列出（merge 關卡對這類 thread 的判定見關卡第 5 項） |
 | `resolve-review` | Step 9 回報後 | 有 push → 呼叫 skill `review-pr` 審下一輪；全部不做、沒有 push → 停 |
 
 ### `review-pr` 的自動選項

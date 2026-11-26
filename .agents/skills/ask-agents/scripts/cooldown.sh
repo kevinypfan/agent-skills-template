@@ -17,6 +17,7 @@ mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1"; }   # GNU 的 -f 是�
 live() { [ -f "$state" ] && awk -F'\t' -v n="$now" '$2 > n' "$state" || true; }
 usage() { sed -n '3,7p' "$0" >&2; exit 2; }
 digits() { case "$1" in ''|*[!0-9]*) return 1 ;; esac; [ "${#1}" -le 12 ]; }
+stale() { local m; m=$(mtime "$1" 2>/dev/null) && [ -n "$m" ] && [ $(( $(date +%s) - m )) -gt 60 ]; }   # 目錄存在且超過 60 秒
 
 rewrite() { # $1=要移除的 agent；$2=要加入的整行（可空）
   mkdir -p "$(dirname "$state")"
@@ -24,9 +25,14 @@ rewrite() { # $1=要移除的 agent；$2=要加入的整行（可空）
   local i=0 tmp m
   until mkdir "$lock" 2>/dev/null; do
     i=$((i+1)); [ "$i" -ge 100 ] && { echo "等不到鎖 ${lock}（另一個程序持有中）" >&2; exit 3; }
-    # 持有者可能剛好在這之間放掉鎖：stat 失敗就直接重試。殘留鎖先改名再刪，兩個等待者不會刪到對方剛拿到的鎖。
-    if m=$(mtime "$lock" 2>/dev/null) && [ -n "$m" ] && [ $(( $(date +%s) - m )) -gt 60 ]; then
-      mv "$lock" "$lock.stale.$$" 2>/dev/null && rmdir "$lock.stale.$$" 2>/dev/null
+    # 持有者可能剛好在這之間放掉鎖：stat 失敗就直接重試。
+    # 清殘留鎖要先拿 $lock.reap 互斥並重新確認仍過期：否則兩個等待者交錯時，後到的會把先到者剛拿的新鎖當殘留清掉。
+    if stale "$lock"; then
+      stale "$lock.reap" && { rmdir "$lock.reap" 2>/dev/null || true; }   # 清鎖途中被 kill -9 留下的
+      if mkdir "$lock.reap" 2>/dev/null; then
+        if stale "$lock"; then mv "$lock" "$lock.stale.$$" 2>/dev/null && rmdir "$lock.stale.$$" 2>/dev/null || true; fi
+        rmdir "$lock.reap" 2>/dev/null || true
+      fi
       continue
     fi
     sleep 0.1

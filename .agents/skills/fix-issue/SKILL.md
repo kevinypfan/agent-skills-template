@@ -25,7 +25,7 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 ## Step 0: 讀設定
 
-1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `base_branch`、`test_command`、`lint_command`、`commit_language`、`language`、`autopilot`。`autopilot` 不是 `off` 時讀 `.agents/skills/_autopilot/README.md`，依其「何時生效」判斷本次的有效值（被 `orchestrate-issues` 調度時為 `off`）；本 skill 的 Step 2d 方案確認不受它影響，一律照停。
+1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `base_branch`、`test_command`、`lint_command`、`commit_language`、`language`、`autopilot`。conventions 的 `autopilot` 不是 `off`、參數含「由 autopilot 串接」、或使用者在對話中臨時指定時，讀 `.agents/skills/_autopilot/README.md`，依其「何時生效」判斷本次的有效值（被 `orchestrate-issues` 調度時為 `off`）；本 skill 的 Step 2d 方案確認不受它影響，一律照停。
 2. 依 `.agents/skills/_tracker/README.md` 判斷 tracker，讀對應 `.agents/skills/_tracker/<tracker>.md`。
 
 ## Workflow

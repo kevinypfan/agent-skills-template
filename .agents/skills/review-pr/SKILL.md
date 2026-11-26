@@ -52,7 +52,7 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `language`、`review_fanout`、`adversarial_external`、`base_branch`、`autopilot`、`autopilot_max_rounds`。
 2. 依 `.agents/skills/_tracker/README.md` 判斷 tracker，讀對應 `.agents/skills/_tracker/<tracker>.md`。下文 **[tracker] 動作** 一律查該檔。
-3. `autopilot` 不是 `off` 時讀 `.agents/skills/_autopilot/README.md`，依其「何時生效」判斷本次的有效值（PR 作者要**確定**等於自己帳號才可能生效，在 Step 1 取得作者後才判定、判定前當 `off`，與 Step 1 第 5 點「判不出來當自審」無關）。下文寫「`autopilot` 生效時」的地方照該檔做。
+3. conventions 的 `autopilot` 不是 `off`、參數含「由 autopilot 串接」、或使用者在對話中臨時指定時，讀 `.agents/skills/_autopilot/README.md`，依其「何時生效」判斷本次的有效值（PR 作者要**確定**等於自己帳號才可能生效，在 Step 1 取得作者後才判定、判定前當 `off`，與 Step 1 第 5 點「判不出來當自審」無關）。下文寫「`autopilot` 生效時」的地方照該檔做。
 
 ## Step 1: 找 PR
 
@@ -123,7 +123,7 @@ findings 格式與嚴重度沿用 `.agents/roles/reviewer.md`：`[嚴重度] 檔
 
 做法（依序嘗試，前一個不可用才退下一個）：
 
-1. `adversarial_external` 為 `auto`（預設）→ **同一則訊息裡同時**呼叫 skill `ask-agents`（同下方 `true` 的做法）並派 `reviewer` agent 吃同一份 prompt，兩邊都在背景跑。`reviewer` 回來就驗證它的 finding 並往 Step 4 組稿；外部 agent 在組稿完成前回來就一起併入。組稿完成時外部還沒回，最多再等 5 分鐘，仍沒回就以 `reviewer` 的結果為準，Adversarial pass 區段註明「外部 agent 未在時限內回覆」（它之後才回來、且在發佈前，仍併入並更新稿件）。`ask-agents` 回報外部在冷卻中或不可用 → 只用 `reviewer` 的結果，註明原因。`reviewer` 失敗或環境沒有 sub agent → 改等外部 agent 回來（不套 5 分鐘上限）；兩邊都失敗或不可用才走第 3 點。`auto` 下狀態分開記：總結的 Adversarial pass 區段寫明「reviewer 已跑過」與「外部 agent 已跑過／未跑過（原因）」。任一邊對整個 PR 跑完，本輪就算已執行、不擋收斂；但外部 agent 還沒對整個 PR 跑過、而且這次不在冷卻中時，之後的輪次要補問外部一次（只問外部，reviewer 不重跑）。發佈後外部才回來且有屬實的 blocker／major → 另發一則補充總結並告知使用者；`autopilot` 的 merge 關卡會等外部回來（見 `_autopilot`）。
+1. `adversarial_external` 為 `auto`（預設）→ **同一則訊息裡同時**呼叫 skill `ask-agents`（同下方 `true` 的做法）並派 `reviewer` agent 吃同一份 prompt，兩邊都在背景跑。`reviewer` 回來就驗證它的 finding 並往 Step 4 組稿；外部 agent 在組稿完成前回來就一起併入。組稿完成時外部還沒回，最多再等 5 分鐘，仍沒回就以 `reviewer` 的結果為準，Adversarial pass 區段註明「外部 agent 未在時限內回覆」（它之後才回來、且在發佈前，仍併入並更新稿件）。`ask-agents` 回報外部在冷卻中或不可用 → 只用 `reviewer` 的結果，註明原因。`reviewer` 失敗或環境沒有 sub agent → 改等外部 agent 回來（不套 5 分鐘上限）；兩邊都失敗或不可用才走第 3 點。`auto` 下狀態分開記：總結的 Adversarial pass 區段寫明「reviewer 已跑過」與「外部 agent 已跑過／未跑過（原因）」。任一邊對整個 PR 跑完，本輪就算已執行、不擋收斂；但外部 agent 還沒對整個 PR 跑過、而且這次不在冷卻中時，之後的輪次要補問外部一次（只問外部，reviewer 不重跑）。發佈後外部才回來且有屬實的 blocker／major → 另發一則補充總結並告知使用者；`autopilot` 的 merge 關卡會再等外部最多 5 分鐘（見 `_autopilot`）。
    `adversarial_external` 為 `true` → 呼叫 skill `ask-agents`：用 `.agents/skills/review-pr/assets/adversarial-prompt.md` 組 prompt，填入 base／head、高風險命中項、assumption 清單、本輪已找到的 findings；必讀證據只是 seeds，模板已要求對方自行擴大搜尋。**只用 `ask-agents` 的 Step 1–3 取回意見，不走它的「Review 場景的後續流程」**；發佈一律回到本 skill 的 Step 4–5。
    `adversarial_external` 為 `false` → 不送外部 agent，直接派 `reviewer` agent 吃同一份 prompt，來源標「adversarial pass（reviewer agent，adversarial_external=false）」，並在總結註明。
 2. （`true` 時）`ask-agents` 不可用、回報外部在冷卻中、或回覆為空 → 派給 `reviewer` agent 吃同一份 prompt。來源標「adversarial pass（reviewer agent，外部 agent 不可用：<原因>）」。

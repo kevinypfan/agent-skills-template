@@ -54,7 +54,7 @@ You **MUST** consider the user input before proceeding (if not empty). The user 
 
 ## Step 0: 讀設定與判斷來源
 
-1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `language`、`test_command`、`lint_command`、`autopilot`。`autopilot` 不是 `off` 時讀 `.agents/skills/_autopilot/README.md`，依其「何時生效」判斷本次是否生效（「PR 已存在且不確定是自己的」在 Step 1 取得 PR 作者後才判定，判定前當 `off`）；下文寫「`autopilot` 生效時」的地方照該檔做。
+1. 讀 `.agents/conventions.md`（依該檔「設定來源與優先序」：專案 `.agents/conventions.md` > 個人 `~/.agents/conventions.local.md` > template 預設／推斷）取 `language`、`test_command`、`lint_command`、`autopilot`。conventions 的 `autopilot` 不是 `off`、參數含「由 autopilot 串接」、或使用者在對話中臨時指定時，讀 `.agents/skills/_autopilot/README.md`，依其「何時生效」判斷本次是否生效（「PR 已存在且不確定是自己的」在 Step 1 取得 PR 作者後才判定，判定前當 `off`）；下文寫「`autopilot` 生效時」的地方照該檔做。
 2. 依 `.agents/skills/_tracker/README.md` 判斷 tracker，讀對應 `.agents/skills/_tracker/<tracker>.md`。下文 **[tracker] 動作** 一律查該檔。
 3. 解析使用者參數。兩種串接格式：`由 review-pr 呼叫；<PR>，第 <N> 輪`（autopilot 串接時尾端多「；由 autopilot 串接（`<值>`）」；沒有這段標記就是使用者手動選的，`autopilot` 為 `off`）、`由 orchestrate-issues 呼叫；<PR>，第 <N> 輪；只處理：<id 清單>`。參數已給 PR 編號與輪次：**直接採用，不重新找 PR、不重掃輪次**；其餘（thread、總結內容、head sha）一律即時取，不信任呼叫端轉述。有「只處理」時，Step 1 照常收集，Step 2 起只處理清單內的 id，清單外的在回報註明「不在指定範圍」，不分級、不回覆；id 在收集結果裡找不到也要回報。
 

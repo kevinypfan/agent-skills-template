@@ -67,6 +67,7 @@ skill 本文**不得**硬編這些值，改值一律改這裡（個人偏好改�
 | `ask_agents_cooldown` | `5h` | | 外部 agent 額度用完、錯誤訊息又沒給 reset 時間時，`ask-agents` 記下的冷卻時間；冷卻期間不再叫它，直接回報不可用（紀錄與解除見 `ask-agents`） |
 | `autopilot` | `off` | | `fix-issue` → `commit-push-pr` → `review-pr` → `resolve-review` 這條鏈自己推進到哪裡：`off` = 每個確認點都問；`pr` = 開好 PR 並審一輪後停；`merge` = 循環修到「建議合併」後過 merge 關卡自動 merge。`fix-issue` 的方案 proceed 一律照停。**不照一般優先序**：專案檔與個人檔都有設定時取較保守的（`off` < `pr` < `merge`），讓個人能用 `off` 關掉專案開的 autopilot；細節與仍會停下的情況見 `.agents/skills/_autopilot/README.md` |
 | `autopilot_max_rounds` | `3` | | `autopilot` 生效時 `review-pr` 最多跑到第幾輪（PR 上的總輪次）；到了仍未收斂就停下回報。不是正整數就用預設 |
+| `claude_settings` | `true` | | `scripts/install-global.sh` 是否寫入 `~/.claude/settings.json`（SubagentStop hook、statusLine）；`false` = 不碰，`--uninstall` 仍會清掉本腳本加的兩筆。安裝腳本只讀 `~/.agents/conventions.local.md` 的這個 key（跨 repo 的個人設定），不讀專案檔 |
 
 ## 範例（填好的樣子）
 
@@ -111,6 +112,7 @@ max_parallel_lanes: 3
 | `language` | repo 規範檔的語言政策；沒寫就用「預設」欄 |
 | `multiplexer` / `auto_merge` / `merge_method` / `delete_branch_after_merge` / `max_parallel_lanes` / `review_policy` / `review_fanout` / `adversarial_external` | 用「預設」欄；`orchestrate-issues` 首次使用時會引導設定並存進個人檔或專案檔 |
 | `agent_kind` | 目前執行 skill 的 agent（Claude Code → `claude`、Codex → `codex`） |
+| `claude_settings` | **不推斷**，預設 `true`；只認 `~/.agents/conventions.local.md` 的明確設定 |
 | `agent_start_args` | **不推斷**，預設空（不開 yolo）；只接受使用者明確選擇 |
 | `autopilot` | **不推斷**，預設 `off`；只接受使用者明確設定（專案檔或個人檔） |
 | `autopilot_max_rounds` / `ask_agents_cooldown` | 用「預設」欄 |
